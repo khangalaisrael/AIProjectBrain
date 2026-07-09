@@ -36,6 +36,13 @@ class Settings(BaseSettings):
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: str | None = None
 
+    # GitHub OAuth
+    github_oauth_client_id: str = ""
+    github_oauth_client_secret: str = ""
+    github_oauth_redirect_uri: str = "http://localhost:8000/api/v1/auth/github/callback"
+    # Where to send the browser after a successful login (frontend receives the token)
+    frontend_url: str = "http://localhost:3000"
+
     # Auth
     jwt_secret: str = "change_me"
     jwt_algorithm: str = "HS256"
