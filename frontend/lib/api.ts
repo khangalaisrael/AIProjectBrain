@@ -90,3 +90,21 @@ export const importRepository = (fullName: string) =>
     method: "POST",
     body: JSON.stringify({ full_name: fullName }),
   });
+
+export interface Citation {
+  file_path: string;
+  name: string;
+  start_line: number;
+  end_line: number;
+}
+
+export interface ChatResponse {
+  answer: string;
+  citations: Citation[];
+}
+
+export const askRepository = (repositoryId: number, question: string) =>
+  apiFetch<ChatResponse>(`/repositories/${repositoryId}/chat`, {
+    method: "POST",
+    body: JSON.stringify({ question }),
+  });

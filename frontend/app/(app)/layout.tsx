@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopNav } from "@/components/layout/topnav";
+import { ChatDock } from "@/components/chat/chat-dock";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -27,6 +28,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </motion.div>
         </main>
       </div>
+
+      <ChatDock />
     </div>
   );
 }
