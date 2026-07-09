@@ -32,6 +32,10 @@ class RepositoryService:
             return []
         return await self._github.list_repositories(user.access_token)
 
+    async def search_github_repositories(self, user: UserModel, query: str) -> list[dict]:
+        """Search public repositories on GitHub (any owner)."""
+        return await self._github.search_repositories(user.access_token or "", query)
+
     def list_imported(self, user: UserModel) -> list[RepositoryModel]:
         return self._repos.list_for_user(user.id)
 

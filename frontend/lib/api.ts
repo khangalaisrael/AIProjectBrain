@@ -75,6 +75,7 @@ export interface GitHubRepo {
   language: string | null;
   private: boolean;
   default_branch: string;
+  stars: number;
 }
 
 // ---- Endpoints ----
@@ -84,6 +85,10 @@ export const getCurrentUser = () => apiFetch<AuthUser>("/auth/me");
 export const getRepositories = () => apiFetch<Repository[]>("/repositories");
 
 export const getGitHubRepositories = () => apiFetch<GitHubRepo[]>("/repositories/github");
+
+/** Search any public repository on GitHub. */
+export const searchGitHubRepositories = (query: string) =>
+  apiFetch<GitHubRepo[]>(`/repositories/search?q=${encodeURIComponent(query)}`);
 
 export const importRepository = (fullName: string) =>
   apiFetch<Repository>("/repositories", {

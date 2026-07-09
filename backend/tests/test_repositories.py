@@ -14,12 +14,28 @@ _GITHUB_REPO = {
 }
 
 
+_PUBLIC_REPO = {
+    "id": 42,
+    "name": "requests",
+    "full_name": "psf/requests",
+    "description": "HTTP for Humans",
+    "language": "Python",
+    "private": False,
+    "default_branch": "main",
+    "clone_url": "https://github.com/psf/requests.git",
+    "stargazers_count": 52000,
+}
+
+
 class FakeGitHubClient:
     async def list_repositories(self, token: str, per_page: int = 100) -> list[dict]:
         return [_GITHUB_REPO]
 
     async def get_repository(self, token: str, full_name: str) -> dict:
         return {**_GITHUB_REPO, "full_name": full_name}
+
+    async def search_repositories(self, token: str, query: str, per_page: int = 25) -> list[dict]:
+        return [_PUBLIC_REPO] if query else []
 
 
 @pytest.fixture
@@ -78,6 +94,32 @@ def test_list_imported_repositories(client, auth_headers, mock_github, enqueued)
 
 def test_repositories_require_auth(client):
     assert client.get("/api/v1/repositories").status_code in (401, 403)
+
+
+def test_search_public_repositories(client, auth_headers, mock_github):
+    resp = client.get("/api/v1/repositories/search", params={"q": "requests"}, headers=auth_headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body[0]["full_name"] == "psf/requests"
+    assert body[0]["stars"] == 52000
+
+
+def test_search_requires_a_query(client, auth_headers, mock_github):
+    assert client.get("/api/v1/repositories/search", headers=auth_headers).status_code == 422
+
+
+def test_search_requires_auth(client):
+    assert client.get("/api/v1/repositories/search", params={"q": "x"}).status_code in (401, 403)
+
+
+def test_can_import_a_public_repo_not_owned_by_user(client, auth_headers, mock_github, enqueued):
+    """Importing works for any owner/name, not just the user's own repos."""
+    resp = client.post(
+        "/api/v1/repositories", headers=auth_headers, json={"full_name": "psf/requests"}
+    )
+    assert resp.status_code == 201
+    assert resp.json()["full_name"] == "psf/requests"
+    assert len(enqueued) == 1
 
 
 def _import_repo(client, headers) -> int:

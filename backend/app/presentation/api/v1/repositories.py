@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.application.chat_service import ChatService
@@ -32,6 +32,19 @@ def list_repositories(
     return RepositoryService(db).list_imported(current_user)
 
 
+def _to_github_repo_out(repo: dict) -> GitHubRepoOut:
+    return GitHubRepoOut(
+        github_id=repo["id"],
+        name=repo["name"],
+        full_name=repo["full_name"],
+        description=repo.get("description"),
+        language=repo.get("language"),
+        private=bool(repo.get("private", False)),
+        default_branch=repo.get("default_branch") or "main",
+        stars=int(repo.get("stargazers_count") or 0),
+    )
+
+
 @router.get("/github", response_model=list[GitHubRepoOut])
 async def list_github_repositories(
     current_user: UserModel = Depends(get_current_user),
@@ -39,18 +52,18 @@ async def list_github_repositories(
 ) -> list[GitHubRepoOut]:
     """List the user's repositories available on GitHub (not yet imported)."""
     repos = await RepositoryService(db).list_github_repositories(current_user)
-    return [
-        GitHubRepoOut(
-            github_id=repo["id"],
-            name=repo["name"],
-            full_name=repo["full_name"],
-            description=repo.get("description"),
-            language=repo.get("language"),
-            private=bool(repo.get("private", False)),
-            default_branch=repo.get("default_branch") or "main",
-        )
-        for repo in repos
-    ]
+    return [_to_github_repo_out(repo) for repo in repos]
+
+
+@router.get("/search", response_model=list[GitHubRepoOut])
+async def search_github_repositories(
+    q: str = Query(min_length=1, max_length=256, description="GitHub search query"),
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[GitHubRepoOut]:
+    """Search public repositories on GitHub so any of them can be imported."""
+    repos = await RepositoryService(db).search_github_repositories(current_user, q)
+    return [_to_github_repo_out(repo) for repo in repos]
 
 
 @router.post("", response_model=RepositoryOut, status_code=status.HTTP_201_CREATED)

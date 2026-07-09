@@ -17,6 +17,7 @@ import {
   getOverview,
   getRepositories,
   importRepository,
+  searchGitHubRepositories,
 } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
 
@@ -67,6 +68,16 @@ export function useGitHubRepositories(enabled: boolean) {
     queryKey: ["github-repositories"],
     queryFn: getGitHubRepositories,
     enabled,
+  });
+}
+
+/** Search public GitHub repositories. Pass an already-debounced query. */
+export function useSearchGitHubRepositories(query: string) {
+  return useQuery({
+    queryKey: ["github-search", query],
+    queryFn: () => searchGitHubRepositories(query),
+    enabled: query.trim().length > 0,
+    staleTime: 60_000,
   });
 }
 

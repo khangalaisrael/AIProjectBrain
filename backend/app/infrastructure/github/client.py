@@ -76,6 +76,18 @@ class GitHubClient:
         """Fetch a single repository by ``owner/name``."""
         return await self._get(token, f"/repos/{full_name}")
 
+    async def search_repositories(self, token: str, query: str, per_page: int = 25) -> list[dict]:
+        """Search public repositories on GitHub, most-starred first."""
+        if not query.strip():
+            return []
+        result = await self._get(
+            token,
+            "/search/repositories",
+            params={"q": query, "sort": "stars", "order": "desc", "per_page": per_page},
+        )
+        items = result.get("items") if isinstance(result, dict) else None
+        return items if isinstance(items, list) else []
+
     async def get_file_content(
         self, token: str, full_name: str, path: str, ref: str | None = None
     ) -> str:

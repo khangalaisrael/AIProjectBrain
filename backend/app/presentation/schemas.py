@@ -33,6 +33,7 @@ class GitHubRepoOut(BaseModel):
     language: str | None = None
     private: bool = False
     default_branch: str = "main"
+    stars: int = 0
 
 
 class ImportRepositoryRequest(BaseModel):
