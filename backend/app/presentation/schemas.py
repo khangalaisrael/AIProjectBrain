@@ -121,3 +121,14 @@ class LessonOut(BaseModel):
     order_index: int
     title: str
     content: str
+
+
+class DecisionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    order_index: int
+    decision: str
+    reason: str
+    tradeoffs: str
+    alternatives: str

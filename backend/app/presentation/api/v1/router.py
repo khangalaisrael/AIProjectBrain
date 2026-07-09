@@ -8,7 +8,15 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.presentation.api.v1 import auth, explorer, health, learn, overview, repositories
+from app.presentation.api.v1 import (
+    auth,
+    explorer,
+    health,
+    learn,
+    overview,
+    repositories,
+    thinking,
+)
 
 api_router = APIRouter()
 api_router.include_router(health.router)
@@ -17,3 +25,4 @@ api_router.include_router(repositories.router)
 api_router.include_router(explorer.router)
 api_router.include_router(overview.router)
 api_router.include_router(learn.router)
+api_router.include_router(thinking.router)

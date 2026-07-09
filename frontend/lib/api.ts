@@ -176,3 +176,18 @@ export const getLessons = (repositoryId: number) =>
 
 export const generateCourse = (repositoryId: number) =>
   apiFetch<Lesson[]>(`/repositories/${repositoryId}/lessons`, { method: "POST" });
+
+export interface Decision {
+  id: number;
+  order_index: number;
+  decision: string;
+  reason: string;
+  tradeoffs: string;
+  alternatives: string;
+}
+
+export const getDecisions = (repositoryId: number) =>
+  apiFetch<Decision[]>(`/repositories/${repositoryId}/decisions`);
+
+export const generateDecisions = (repositoryId: number) =>
+  apiFetch<Decision[]>(`/repositories/${repositoryId}/decisions`, { method: "POST" });

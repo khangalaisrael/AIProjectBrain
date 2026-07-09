@@ -142,3 +142,20 @@ class LessonModel(TimestampMixin, Base):
     order_index: Mapped[int] = mapped_column(nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class DecisionModel(TimestampMixin, Base):
+    """An inferred engineering decision: what, why, trade-offs, alternatives."""
+
+    __tablename__ = "decisions"
+    __table_args__ = (Index("ix_decisions_repository_order", "repository_id", "order_index"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    repository_id: Mapped[int] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    order_index: Mapped[int] = mapped_column(nullable=False)
+    decision: Mapped[str] = mapped_column(String(512), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    tradeoffs: Mapped[str] = mapped_column(Text, default="")
+    alternatives: Mapped[str] = mapped_column(Text, default="")

@@ -6,8 +6,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   explainFile,
   generateCourse,
+  generateDecisions,
   generateOverview,
   getCurrentUser,
+  getDecisions,
   getFile,
   getFiles,
   getGitHubRepositories,
@@ -134,6 +136,24 @@ export function useGenerateCourse() {
     mutationFn: (repositoryId: number) => generateCourse(repositoryId),
     onSuccess: (data, repositoryId) => {
       queryClient.setQueryData(["lessons", repositoryId], data);
+    },
+  });
+}
+
+export function useDecisions(repositoryId: number | null) {
+  return useQuery({
+    queryKey: ["decisions", repositoryId],
+    queryFn: () => getDecisions(repositoryId as number),
+    enabled: repositoryId !== null,
+  });
+}
+
+export function useGenerateDecisions() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (repositoryId: number) => generateDecisions(repositoryId),
+    onSuccess: (data, repositoryId) => {
+      queryClient.setQueryData(["decisions", repositoryId], data);
     },
   });
 }

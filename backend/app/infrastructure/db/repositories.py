@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.domain.enums import ImportStatus
 from app.infrastructure.db.models import (
+    DecisionModel,
     FileModel,
     FunctionModel,
     LessonModel,
@@ -183,6 +184,40 @@ class LessonRepository:
                 content=str(lesson.get("content", "")),
             )
             for index, lesson in enumerate(lessons)
+        ]
+        self._session.add_all(models)
+        self._session.commit()
+        return self.list_for_repository(repository_id)
+
+
+class DecisionRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def list_for_repository(self, repository_id: int) -> list[DecisionModel]:
+        return list(
+            self._session.scalars(
+                select(DecisionModel)
+                .where(DecisionModel.repository_id == repository_id)
+                .order_by(DecisionModel.order_index)
+            )
+        )
+
+    def replace(self, repository_id: int, decisions: list[dict]) -> list[DecisionModel]:
+        """Replace all decisions for a repository with a freshly generated set."""
+        self._session.execute(
+            delete(DecisionModel).where(DecisionModel.repository_id == repository_id)
+        )
+        models = [
+            DecisionModel(
+                repository_id=repository_id,
+                order_index=index,
+                decision=str(item.get("decision", f"Decision {index + 1}")),
+                reason=str(item.get("reason", "")),
+                tradeoffs=str(item.get("tradeoffs", "")),
+                alternatives=str(item.get("alternatives", "")),
+            )
+            for index, item in enumerate(decisions)
         ]
         self._session.add_all(models)
         self._session.commit()
