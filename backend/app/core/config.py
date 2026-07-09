@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expires_minutes: int = 60
 
+    # AI (OpenAI) — one key powers both chat and embeddings
+    openai_api_key: str = ""
+    llm_provider: str = "openai"
+    llm_model: str = "gpt-4o"
+    embedding_provider: str = "openai"
+    embedding_model: str = "text-embedding-3-small"
+
     # Observability
     sentry_dsn: str | None = None
 
