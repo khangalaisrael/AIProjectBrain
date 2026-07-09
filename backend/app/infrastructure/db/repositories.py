@@ -10,7 +10,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.domain.enums import ImportStatus
-from app.infrastructure.db.models import FileModel, FunctionModel, RepositoryModel, UserModel
+from app.infrastructure.db.models import (
+    FileModel,
+    FunctionModel,
+    OverviewModel,
+    RepositoryModel,
+    UserModel,
+)
 
 
 class UserRepository:
@@ -123,3 +129,30 @@ class FileRepository:
                 .order_by(FunctionModel.start_line)
             )
         )
+
+
+class OverviewRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def get(self, repository_id: int) -> OverviewModel | None:
+        return self._session.scalar(
+            select(OverviewModel).where(OverviewModel.repository_id == repository_id)
+        )
+
+    def upsert(self, repository_id: int, data: dict) -> OverviewModel:
+        overview = self.get(repository_id)
+        if overview is None:
+            overview = OverviewModel(repository_id=repository_id)
+            self._session.add(overview)
+
+        overview.summary = data.get("summary", "")
+        overview.difficulty = data.get("difficulty")
+        overview.learning_time_minutes = data.get("learning_time_minutes")
+        overview.architecture_style = data.get("architecture_style")
+        overview.technologies = data.get("technologies") or []
+        overview.features = data.get("features") or []
+
+        self._session.commit()
+        self._session.refresh(overview)
+        return overview

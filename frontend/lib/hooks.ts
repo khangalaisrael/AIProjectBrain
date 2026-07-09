@@ -5,10 +5,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   explainFile,
+  generateOverview,
   getCurrentUser,
   getFile,
   getFiles,
   getGitHubRepositories,
+  getOverview,
   getRepositories,
   importRepository,
 } from "@/lib/api";
@@ -94,5 +96,24 @@ export function useExplainFile() {
   return useMutation({
     mutationFn: ({ repositoryId, fileId }: { repositoryId: number; fileId: number }) =>
       explainFile(repositoryId, fileId),
+  });
+}
+
+export function useOverview(repositoryId: number | null) {
+  return useQuery({
+    queryKey: ["overview", repositoryId],
+    queryFn: () => getOverview(repositoryId as number),
+    enabled: repositoryId !== null,
+    retry: false, // a 404 means "not generated yet", not a transient failure
+  });
+}
+
+export function useGenerateOverview() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (repositoryId: number) => generateOverview(repositoryId),
+    onSuccess: (data, repositoryId) => {
+      queryClient.setQueryData(["overview", repositoryId], data);
+    },
   });
 }

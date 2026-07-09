@@ -142,3 +142,24 @@ export const explainFile = (repositoryId: number, fileId: number) =>
   apiFetch<{ explanation: string }>(`/repositories/${repositoryId}/files/${fileId}/explain`, {
     method: "POST",
   });
+
+export interface FolderMapItem {
+  folder: string;
+  file_count: number;
+}
+
+export interface Overview {
+  summary: string;
+  difficulty: string | null;
+  learning_time_minutes: number | null;
+  architecture_style: string | null;
+  technologies: string[];
+  features: string[];
+  folder_map: FolderMapItem[];
+}
+
+export const getOverview = (repositoryId: number) =>
+  apiFetch<Overview>(`/repositories/${repositoryId}/overview`);
+
+export const generateOverview = (repositoryId: number) =>
+  apiFetch<Overview>(`/repositories/${repositoryId}/overview`, { method: "POST" });

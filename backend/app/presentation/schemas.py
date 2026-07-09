@@ -97,3 +97,18 @@ class FileDetailOut(BaseModel):
 
 class ExplainResponse(BaseModel):
     explanation: str
+
+
+class FolderMapItem(BaseModel):
+    folder: str
+    file_count: int
+
+
+class OverviewOut(BaseModel):
+    summary: str
+    difficulty: str | None = None
+    learning_time_minutes: int | None = None
+    architecture_style: str | None = None
+    technologies: list[str]
+    features: list[str]
+    folder_map: list[FolderMapItem]

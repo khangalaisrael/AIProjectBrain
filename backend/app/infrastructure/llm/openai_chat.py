@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from openai import OpenAI
 
 from app.core.config import get_settings
@@ -24,3 +26,16 @@ class OpenAIChat:
             ],
         )
         return response.choices[0].message.content or ""
+
+    def complete_json(self, system_prompt: str, user_prompt: str) -> dict:
+        """Return a parsed JSON object using the model's JSON output mode."""
+        response = self._client.chat.completions.create(
+            model=self._model,
+            temperature=0.2,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+        )
+        return json.loads(response.choices[0].message.content or "{}")

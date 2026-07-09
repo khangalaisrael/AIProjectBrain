@@ -5,11 +5,13 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     DateTime,
     ForeignKey,
     Index,
     String,
+    Text,
     UniqueConstraint,
     func,
 )
@@ -105,3 +107,23 @@ class FunctionModel(TimestampMixin, Base):
     end_line: Mapped[int] = mapped_column(nullable=False)
 
     file: Mapped[FileModel] = relationship(back_populates="functions")
+
+
+class OverviewModel(TimestampMixin, Base):
+    """Cached, LLM-generated project overview for a repository (one-to-one)."""
+
+    __tablename__ = "overviews"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    repository_id: Mapped[int] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE"),
+        unique=True,
+        index=True,
+        nullable=False,
+    )
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    difficulty: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    learning_time_minutes: Mapped[int | None] = mapped_column(nullable=True)
+    architecture_style: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    technologies: Mapped[list[str]] = mapped_column(JSON, default=list)
+    features: Mapped[list[str]] = mapped_column(JSON, default=list)
