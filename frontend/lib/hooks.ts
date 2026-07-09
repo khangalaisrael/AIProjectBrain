@@ -4,12 +4,15 @@ import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  type DocType,
   explainFile,
   generateCourse,
   generateDecisions,
+  generateDocument,
   generateOverview,
   getCurrentUser,
   getDecisions,
+  getDocuments,
   getFile,
   getFiles,
   getGitHubRepositories,
@@ -165,6 +168,25 @@ export function useGenerateDecisions() {
     mutationFn: (repositoryId: number) => generateDecisions(repositoryId),
     onSuccess: (data, repositoryId) => {
       queryClient.setQueryData(["decisions", repositoryId], data);
+    },
+  });
+}
+
+export function useDocuments(repositoryId: number | null) {
+  return useQuery({
+    queryKey: ["docs", repositoryId],
+    queryFn: () => getDocuments(repositoryId as number),
+    enabled: repositoryId !== null,
+  });
+}
+
+export function useGenerateDocument() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ repositoryId, docType }: { repositoryId: number; docType: DocType }) =>
+      generateDocument(repositoryId, docType),
+    onSuccess: (_data, { repositoryId }) => {
+      queryClient.invalidateQueries({ queryKey: ["docs", repositoryId] });
     },
   });
 }

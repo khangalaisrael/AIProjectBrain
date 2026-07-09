@@ -196,3 +196,18 @@ export const getDecisions = (repositoryId: number) =>
 
 export const generateDecisions = (repositoryId: number) =>
   apiFetch<Decision[]>(`/repositories/${repositoryId}/decisions`, { method: "POST" });
+
+export type DocType = "readme" | "api" | "architecture" | "folders";
+
+export interface Document {
+  id: number;
+  doc_type: DocType;
+  title: string;
+  content: string;
+}
+
+export const getDocuments = (repositoryId: number) =>
+  apiFetch<Document[]>(`/repositories/${repositoryId}/docs`);
+
+export const generateDocument = (repositoryId: number, docType: DocType) =>
+  apiFetch<Document>(`/repositories/${repositoryId}/docs/${docType}`, { method: "POST" });

@@ -16,6 +16,15 @@ class ImportStatus(StrEnum):
     FAILED = "failed"
 
 
+class DocType(StrEnum):
+    """Kinds of documentation the platform can generate for a repository."""
+
+    README = "readme"
+    API = "api"
+    ARCHITECTURE = "architecture"
+    FOLDERS = "folders"
+
+
 class Language(StrEnum):
     """Programming languages supported by the parser (Phase 1 scope)."""
 

@@ -133,3 +133,12 @@ class DecisionOut(BaseModel):
     reason: str
     tradeoffs: str
     alternatives: str
+
+
+class DocumentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    doc_type: str
+    title: str
+    content: str

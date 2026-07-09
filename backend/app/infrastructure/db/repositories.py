@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.domain.enums import ImportStatus
 from app.infrastructure.db.models import (
     DecisionModel,
+    DocumentModel,
     FileModel,
     FunctionModel,
     LessonModel,
@@ -188,6 +189,41 @@ class LessonRepository:
         self._session.add_all(models)
         self._session.commit()
         return self.list_for_repository(repository_id)
+
+
+class DocumentRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def list_for_repository(self, repository_id: int) -> list[DocumentModel]:
+        return list(
+            self._session.scalars(
+                select(DocumentModel)
+                .where(DocumentModel.repository_id == repository_id)
+                .order_by(DocumentModel.doc_type)
+            )
+        )
+
+    def get(self, repository_id: int, doc_type: str) -> DocumentModel | None:
+        return self._session.scalar(
+            select(DocumentModel).where(
+                DocumentModel.repository_id == repository_id,
+                DocumentModel.doc_type == doc_type,
+            )
+        )
+
+    def upsert(self, repository_id: int, doc_type: str, title: str, content: str) -> DocumentModel:
+        document = self.get(repository_id, doc_type)
+        if document is None:
+            document = DocumentModel(repository_id=repository_id, doc_type=doc_type)
+            self._session.add(document)
+
+        document.title = title
+        document.content = content
+
+        self._session.commit()
+        self._session.refresh(document)
+        return document
 
 
 class DecisionRepository:

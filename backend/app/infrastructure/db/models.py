@@ -144,6 +144,21 @@ class LessonModel(TimestampMixin, Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
 
 
+class DocumentModel(TimestampMixin, Base):
+    """A generated documentation page for a repository (one per doc type)."""
+
+    __tablename__ = "documents"
+    __table_args__ = (UniqueConstraint("repository_id", "doc_type", name="uq_document_repo_type"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    repository_id: Mapped[int] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    doc_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+
+
 class DecisionModel(TimestampMixin, Base):
     """An inferred engineering decision: what, why, trade-offs, alternatives."""
 
