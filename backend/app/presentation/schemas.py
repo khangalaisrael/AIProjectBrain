@@ -142,3 +142,27 @@ class DocumentOut(BaseModel):
     doc_type: str
     title: str
     content: str
+
+
+class GraphNodeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    key: str
+    kind: str
+    level: int
+    name: str
+    path: str | None = None
+    parent_key: str | None = None
+    meta: dict
+
+
+class GraphEdgeOut(BaseModel):
+    source_key: str
+    target_key: str
+    kind: str
+    weight: int
+
+
+class GraphOut(BaseModel):
+    nodes: list[GraphNodeOut]
+    edges: list[GraphEdgeOut]

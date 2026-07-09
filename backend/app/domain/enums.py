@@ -16,6 +16,28 @@ class ImportStatus(StrEnum):
     FAILED = "failed"
 
 
+class NodeKind(StrEnum):
+    """Kinds of node in the Software Atlas knowledge graph."""
+
+    REPOSITORY = "repository"
+    SYSTEM = "system"
+    FOLDER = "folder"
+    FILE = "file"
+    CLASS = "class"
+    FUNCTION = "function"
+    EXTERNAL = "external"
+
+
+class EdgeKind(StrEnum):
+    """Kinds of relationship between graph nodes."""
+
+    CONTAINS = "contains"
+    IMPORTS = "imports"
+    CALLS = "calls"
+    EXTENDS = "extends"
+    IMPLEMENTS = "implements"
+
+
 class DocType(StrEnum):
     """Kinds of documentation the platform can generate for a repository."""
 

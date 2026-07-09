@@ -36,7 +36,7 @@ def test_index_directory_persists_files_and_functions(db_session, tmp_path: Path
     (tmp_path / "README.md").write_text("# docs", encoding="utf-8")
 
     repo = _make_repo(db_session)
-    chunks = IndexingService(db_session).index_directory(repo, tmp_path)
+    chunks = IndexingService(db_session).index_directory(repo, tmp_path).chunks
 
     files = db_session.scalars(select(FileModel)).all()
     assert {f.path for f in files} == {"app.py", "util.js"}

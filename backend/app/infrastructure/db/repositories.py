@@ -15,6 +15,8 @@ from app.infrastructure.db.models import (
     DocumentModel,
     FileModel,
     FunctionModel,
+    GraphEdgeModel,
+    GraphNodeModel,
     LessonModel,
     OverviewModel,
     RepositoryModel,
@@ -189,6 +191,60 @@ class LessonRepository:
         self._session.add_all(models)
         self._session.commit()
         return self.list_for_repository(repository_id)
+
+
+class GraphRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def list_nodes(self, repository_id: int, max_level: int | None = None) -> list[GraphNodeModel]:
+        statement = select(GraphNodeModel).where(GraphNodeModel.repository_id == repository_id)
+        if max_level is not None:
+            statement = statement.where(GraphNodeModel.level <= max_level)
+        return list(
+            self._session.scalars(statement.order_by(GraphNodeModel.level, GraphNodeModel.key))
+        )
+
+    def list_edges(self, repository_id: int) -> list[GraphEdgeModel]:
+        return list(
+            self._session.scalars(
+                select(GraphEdgeModel).where(GraphEdgeModel.repository_id == repository_id)
+            )
+        )
+
+    def get_node(self, repository_id: int, key: str) -> GraphNodeModel | None:
+        return self._session.scalar(
+            select(GraphNodeModel).where(
+                GraphNodeModel.repository_id == repository_id, GraphNodeModel.key == key
+            )
+        )
+
+    def children(self, repository_id: int, parent_key: str) -> list[GraphNodeModel]:
+        return list(
+            self._session.scalars(
+                select(GraphNodeModel)
+                .where(
+                    GraphNodeModel.repository_id == repository_id,
+                    GraphNodeModel.parent_key == parent_key,
+                )
+                .order_by(GraphNodeModel.name)
+            )
+        )
+
+    def clear(self, repository_id: int) -> None:
+        self._session.execute(
+            delete(GraphEdgeModel).where(GraphEdgeModel.repository_id == repository_id)
+        )
+        self._session.execute(
+            delete(GraphNodeModel).where(GraphNodeModel.repository_id == repository_id)
+        )
+
+    def replace(self, repository_id: int, nodes: list[dict], edges: list[dict]) -> None:
+        """Swap in a freshly built graph for a repository."""
+        self.clear(repository_id)
+        self._session.add_all(GraphNodeModel(repository_id=repository_id, **node) for node in nodes)
+        self._session.add_all(GraphEdgeModel(repository_id=repository_id, **edge) for edge in edges)
+        self._session.commit()
 
 
 class DocumentRepository:

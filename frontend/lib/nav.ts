@@ -5,7 +5,7 @@ import {
   FolderGit2,
   LayoutDashboard,
   Lightbulb,
-  Network,
+  Map,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -23,7 +23,7 @@ export const navItems: NavItem[] = [
   { label: "Overview", href: "/overview", icon: Boxes },
   { label: "Learn", href: "/learn", icon: BookOpen },
   { label: "Code Explorer", href: "/code-explorer", icon: FileText },
-  { label: "Flow Explorer", href: "/flow-explorer", icon: Network },
+  { label: "Atlas", href: "/atlas", icon: Map },
   { label: "Developer Thinking", href: "/developer-thinking", icon: Lightbulb },
   { label: "Documentation", href: "/documentation", icon: FileText },
   { label: "Settings", href: "/settings", icon: Settings },

@@ -16,6 +16,8 @@ import {
   getFile,
   getFiles,
   getGitHubRepositories,
+  getGraph,
+  getGraphChildren,
   getLessons,
   getOverview,
   getRepositories,
@@ -169,6 +171,26 @@ export function useGenerateDecisions() {
     onSuccess: (data, repositoryId) => {
       queryClient.setQueryData(["decisions", repositoryId], data);
     },
+  });
+}
+
+/** Whole-repo graph down to a level (used to seed search). */
+export function useGraph(repositoryId: number | null, maxLevel: number) {
+  return useQuery({
+    queryKey: ["graph", repositoryId, maxLevel],
+    queryFn: () => getGraph(repositoryId as number, maxLevel),
+    enabled: repositoryId !== null,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Children of the currently scoped node — what the Atlas canvas renders. */
+export function useGraphChildren(repositoryId: number | null, key: string | null) {
+  return useQuery({
+    queryKey: ["graph-children", repositoryId, key],
+    queryFn: () => getGraphChildren(repositoryId as number, key as string),
+    enabled: repositoryId !== null && key !== null,
+    staleTime: 5 * 60_000,
   });
 }
 

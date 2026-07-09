@@ -206,6 +206,52 @@ export interface Document {
   content: string;
 }
 
+// ---- Software Atlas (knowledge graph) ----
+
+export type GraphNodeKind =
+  "repository" | "system" | "folder" | "file" | "class" | "function" | "external";
+
+export type GraphEdgeKind = "imports" | "calls" | "extends" | "implements" | "contains";
+
+export interface GraphNode {
+  key: string;
+  kind: GraphNodeKind;
+  level: number;
+  name: string;
+  path: string | null;
+  parent_key: string | null;
+  meta: {
+    file_id?: number | null;
+    start_line?: number;
+    end_line?: number;
+    signature?: string | null;
+    bucket?: string;
+  };
+}
+
+export interface GraphEdge {
+  source_key: string;
+  target_key: string;
+  kind: GraphEdgeKind;
+  weight: number;
+}
+
+export interface Graph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+/** Whole-repo view down to a zoom level, with deeper edges rolled up. */
+export const getGraph = (repositoryId: number, maxLevel: number) =>
+  apiFetch<Graph>(`/repositories/${repositoryId}/graph?max_level=${maxLevel}`);
+
+/** Direct children of a node — the drill-in primitive the Atlas navigates with. */
+export const getGraphChildren = (repositoryId: number, key: string) =>
+  apiFetch<Graph>(`/repositories/${repositoryId}/graph/children?key=${encodeURIComponent(key)}`);
+
+export const getGraphNode = (repositoryId: number, key: string) =>
+  apiFetch<GraphNode>(`/repositories/${repositoryId}/graph/node?key=${encodeURIComponent(key)}`);
+
 export const getDocuments = (repositoryId: number) =>
   apiFetch<Document[]>(`/repositories/${repositoryId}/docs`);
 

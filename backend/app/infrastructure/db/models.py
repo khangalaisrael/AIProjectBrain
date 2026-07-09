@@ -159,6 +159,45 @@ class DocumentModel(TimestampMixin, Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
 
 
+class GraphNodeModel(TimestampMixin, Base):
+    """A node in the repository's knowledge graph (the Software Atlas)."""
+
+    __tablename__ = "graph_nodes"
+    __table_args__ = (
+        UniqueConstraint("repository_id", "key", name="uq_graph_node_repo_key"),
+        Index("ix_graph_nodes_repo_level", "repository_id", "level"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    repository_id: Mapped[int] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    # Stable, human-readable identity, e.g. "file:backend/app/main.py".
+    key: Mapped[str] = mapped_column(String(1024), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    level: Mapped[int] = mapped_column(nullable=False)
+    name: Mapped[str] = mapped_column(String(512), nullable=False)
+    path: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    parent_key: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    meta: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class GraphEdgeModel(TimestampMixin, Base):
+    """A relationship between two graph nodes."""
+
+    __tablename__ = "graph_edges"
+    __table_args__ = (Index("ix_graph_edges_repo_source", "repository_id", "source_key"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    repository_id: Mapped[int] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    source_key: Mapped[str] = mapped_column(String(1024), nullable=False)
+    target_key: Mapped[str] = mapped_column(String(1024), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    meta: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
 class DecisionModel(TimestampMixin, Base):
     """An inferred engineering decision: what, why, trade-offs, alternatives."""
 

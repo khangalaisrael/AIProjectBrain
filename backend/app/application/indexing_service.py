@@ -8,6 +8,7 @@ git access.
 from __future__ import annotations
 
 import tempfile
+from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
@@ -16,12 +17,23 @@ from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.application.embedding_service import EmbeddingService
+from app.application.graph_builder import GraphBuilder
 from app.core.logging import get_logger
 from app.domain.entities import CodeChunk
 from app.domain.enums import ImportStatus, Language
 from app.infrastructure.db.models import FileModel, FunctionModel, RepositoryModel
-from app.infrastructure.db.repositories import RepositoryRepository
-from app.infrastructure.parsing.tree_sitter_parser import parse_functions
+from app.infrastructure.db.repositories import GraphRepository, RepositoryRepository
+from app.infrastructure.parsing.tree_sitter_parser import ParsedFile, parse_file
+
+
+@dataclass
+class IndexResult:
+    """Everything a single indexing pass produced."""
+
+    chunks: list[CodeChunk] = field(default_factory=list)
+    parsed_by_path: dict[str, ParsedFile] = field(default_factory=dict)
+    file_ids: dict[str, int] = field(default_factory=dict)
+
 
 logger = get_logger(__name__)
 
@@ -64,25 +76,26 @@ class IndexingService:
                 self._clone(repo, Path(tmp), access_token)
                 self._repos.set_status(repo.id, ImportStatus.PARSING)
                 self._clear_previous_index(repo.id)
-                chunks = self.index_directory(repo, Path(tmp))
+                result = self.index_directory(repo, Path(tmp))
+                self._build_graph(repo, result)
 
-            if self._embedder is not None and chunks:
+            if self._embedder is not None and result.chunks:
                 self._repos.set_status(repo.id, ImportStatus.INDEXING)
                 self._embedder.reset_repository(repo.id)
-                self._embedder.embed_and_store(chunks)
+                self._embedder.embed_and_store(result.chunks)
 
             self._repos.set_status(repo.id, ImportStatus.READY)
         except Exception as exc:  # noqa: BLE001 - record failure, don't crash the worker
             logger.exception("Indexing failed for repository %s", repository_id)
             self._repos.set_status(repo.id, ImportStatus.FAILED, error_message=str(exc)[:2000])
 
-    def index_directory(self, repo: RepositoryModel, root: Path) -> list[CodeChunk]:
+    def index_directory(self, repo: RepositoryModel, root: Path) -> IndexResult:
         """Walk ``root``, parse supported files, persist files + functions.
 
-        Returns one :class:`CodeChunk` per function (for embedding). Pure
-        filesystem work — no network.
+        Returns the embeddable chunks plus the static-analysis output needed to
+        build the knowledge graph. Pure filesystem work — no network.
         """
-        chunks: list[CodeChunk] = []
+        result = IndexResult()
         for path in _iter_source_files(root):
             language = Language.from_path(str(path))
             if language is None:
@@ -106,9 +119,14 @@ class IndexingService:
             self._session.add(file_model)
             self._session.flush()  # assign file_model.id
 
+            # Single parse pass feeds both embeddings and the graph.
+            parsed = parse_file(source, language)
+            result.parsed_by_path[rel_path] = parsed
+            result.file_ids[rel_path] = file_model.id
+
             lines = source.splitlines()
             pending: list[tuple[FunctionModel, str]] = []
-            for func in parse_functions(source, language):
+            for func in parsed.functions:
                 model = FunctionModel(
                     file_id=file_model.id,
                     repository_id=repo.id,
@@ -123,7 +141,7 @@ class IndexingService:
 
             self._session.flush()  # assign function ids
             for model, code in pending:
-                chunks.append(
+                result.chunks.append(
                     CodeChunk(
                         function_id=model.id,
                         repository_id=repo.id,
@@ -136,14 +154,23 @@ class IndexingService:
                 )
 
         self._session.commit()
-        return chunks
+        return result
+
+    def _build_graph(self, repo: RepositoryModel, result: IndexResult) -> None:
+        """Build and persist the knowledge graph for the Software Atlas."""
+        nodes, edges = GraphBuilder(repo.full_name, result.file_ids).build(result.parsed_by_path)
+        GraphRepository(self._session).replace(repo.id, nodes, edges)
+        logger.info(
+            "Graph built for %s: %d nodes, %d edges", repo.full_name, len(nodes), len(edges)
+        )
 
     def _clear_previous_index(self, repository_id: int) -> None:
-        """Remove prior files/functions so re-indexing starts clean."""
+        """Remove prior files/functions/graph so re-indexing starts clean."""
         self._session.execute(
             delete(FunctionModel).where(FunctionModel.repository_id == repository_id)
         )
         self._session.execute(delete(FileModel).where(FileModel.repository_id == repository_id))
+        GraphRepository(self._session).clear(repository_id)
         self._session.commit()
 
     @staticmethod
