@@ -1,11 +1,16 @@
 /**
- * Minimal typed fetch client for the backend API.
+ * Typed fetch client for the backend API.
  *
- * Feature-specific calls (auth, repositories, chat, …) build on `apiFetch` as
- * they are implemented. No endpoints beyond `health` exist yet.
+ * Attaches the stored JWT as a Bearer token and exposes the Phase 1 endpoints
+ * (auth, repositories) used by the UI.
  */
 
+import { getToken } from "@/lib/auth-store";
+
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
+
+/** Full URL the browser navigates to in order to start GitHub OAuth. */
+export const GITHUB_LOGIN_URL = `${API_BASE_URL}/auth/github/login`;
 
 export class ApiError extends Error {
   constructor(
@@ -18,19 +23,70 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getToken();
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json", ...init?.headers },
     ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init?.headers,
+    },
   });
 
   if (!response.ok) {
     throw new ApiError(response.status, `Request to ${path} failed (${response.status})`);
   }
-
+  if (response.status === 204) {
+    return undefined as T;
+  }
   return (await response.json()) as T;
 }
 
-/** Backend liveness check. */
-export function getHealth() {
-  return apiFetch<{ status: string }>("/health");
+// ---- Types (mirror backend Pydantic schemas) ----
+
+export type ImportStatus = "pending" | "cloning" | "parsing" | "indexing" | "ready" | "failed";
+
+export interface AuthUser {
+  id: number;
+  github_id: number;
+  username: string;
+  email: string | null;
+  avatar_url: string | null;
 }
+
+export interface Repository {
+  id: number;
+  github_id: number;
+  name: string;
+  full_name: string;
+  description: string | null;
+  language: string | null;
+  is_private: boolean;
+  default_branch: string;
+  status: ImportStatus;
+  error_message: string | null;
+}
+
+export interface GitHubRepo {
+  github_id: number;
+  name: string;
+  full_name: string;
+  description: string | null;
+  language: string | null;
+  private: boolean;
+  default_branch: string;
+}
+
+// ---- Endpoints ----
+
+export const getCurrentUser = () => apiFetch<AuthUser>("/auth/me");
+
+export const getRepositories = () => apiFetch<Repository[]>("/repositories");
+
+export const getGitHubRepositories = () => apiFetch<GitHubRepo[]>("/repositories/github");
+
+export const importRepository = (fullName: string) =>
+  apiFetch<Repository>("/repositories", {
+    method: "POST",
+    body: JSON.stringify({ full_name: fullName }),
+  });

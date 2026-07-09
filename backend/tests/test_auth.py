@@ -45,7 +45,7 @@ def test_login_redirects_to_github_with_state(client):
     assert parse_qs(urlparse(location).query)["state"]
 
 
-def test_callback_creates_user_and_issues_token(client, monkeypatch):
+def test_callback_creates_user_and_redirects_with_token(client, monkeypatch):
     monkeypatch.setattr("app.application.auth_service.GitHubClient", lambda: FakeGitHubClient())
 
     login = client.get("/api/v1/auth/github/login", follow_redirects=False)
@@ -56,13 +56,13 @@ def test_callback_creates_user_and_issues_token(client, monkeypatch):
         params={"code": "abc123", "state": state},
         follow_redirects=False,
     )
-    assert callback.status_code == 200
-    body = callback.json()
-    assert body["token_type"] == "bearer"
-    assert body["user"]["username"] == "octocat"
+    assert callback.status_code == 307
+    location = callback.headers["location"]
+    assert location.startswith("http://localhost:3000/auth/callback#token=")
 
-    # The issued token authenticates against /me.
-    me = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {body['access_token']}"})
+    # The token handed to the frontend authenticates against /me.
+    token = location.split("#token=", 1)[1]
+    me = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert me.status_code == 200
     assert me.json()["github_id"] == 4242
 

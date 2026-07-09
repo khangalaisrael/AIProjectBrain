@@ -2,6 +2,7 @@
 
 import { PanelLeft, Search } from "lucide-react";
 
+import { AuthControls } from "@/components/auth/auth-controls";
 import { Button } from "@/components/ui/button";
 
 interface TopNavProps {
@@ -23,6 +24,10 @@ export function TopNav({ onToggleSidebar }: TopNavProps) {
         <span>Search…</span>
         <kbd className="border-border ml-auto rounded border px-1.5 text-xs">Ctrl K</kbd>
       </button>
+
+      <div className="ml-auto">
+        <AuthControls />
+      </div>
     </header>
   );
 }
