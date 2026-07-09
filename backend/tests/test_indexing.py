@@ -1,7 +1,8 @@
-"""Indexing service filesystem-walk tests (no network / git)."""
+"""Indexing service tests: filesystem walk + full clone-from-local-repo run."""
 
 from pathlib import Path
 
+from git import Actor, Repo
 from sqlalchemy import select
 
 from app.application.indexing_service import IndexingService
@@ -43,3 +44,28 @@ def test_index_directory_persists_files_and_functions(db_session, tmp_path: Path
 
     functions = db_session.scalars(select(FunctionModel)).all()
     assert {fn.name for fn in functions} == {"main", "helper"}
+
+
+def test_run_clones_local_repo_and_marks_ready(db_session, tmp_path: Path):
+    # Build a real local git repo to clone from (no network required).
+    source = tmp_path / "source"
+    source.mkdir()
+    git_repo = Repo.init(source, initial_branch="main")
+    (source / "service.py").write_text(
+        "def handle(request):\n    return request\n", encoding="utf-8"
+    )
+    git_repo.index.add(["service.py"])
+    actor = Actor("Test", "test@example.com")
+    git_repo.index.commit("initial", author=actor, committer=actor)
+
+    repo = _make_repo(db_session)
+    repo.clone_url = str(source)
+    repo.default_branch = "main"
+    db_session.commit()
+
+    IndexingService(db_session).run(repo.id)
+
+    db_session.refresh(repo)
+    assert repo.status == ImportStatus.READY
+    functions = db_session.scalars(select(FunctionModel)).all()
+    assert {fn.name for fn in functions} == {"handle"}

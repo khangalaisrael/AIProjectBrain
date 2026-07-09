@@ -29,4 +29,9 @@ celery_app.conf.update(
     accept_content=["json"],
     timezone="UTC",
     enable_utc=True,
+    # Eager mode runs tasks inline (no broker/worker). Failures are recorded on
+    # the repository row rather than propagated, so an import request still
+    # returns cleanly even if indexing fails.
+    task_always_eager=_settings.celery_task_always_eager,
+    task_eager_propagates=False,
 )

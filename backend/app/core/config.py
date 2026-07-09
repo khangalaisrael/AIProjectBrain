@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: str | None = None
 
+    # Background processing
+    # When True, Celery tasks run synchronously in-process (no Redis/worker
+    # required) — convenient for local development and tests.
+    celery_task_always_eager: bool = False
+
     # GitHub OAuth
     github_oauth_client_id: str = ""
     github_oauth_client_secret: str = ""
