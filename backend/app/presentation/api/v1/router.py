@@ -1,0 +1,14 @@
+"""Aggregate router for API v1.
+
+Feature routers (auth, repositories, courses, code explorer, chat,
+documentation, search) are included here as they are built.
+"""
+
+from __future__ import annotations
+
+from fastapi import APIRouter
+
+from app.presentation.api.v1 import health
+
+api_router = APIRouter()
+api_router.include_router(health.router)

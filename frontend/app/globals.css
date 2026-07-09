@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+/* Dark mode is driven by a `.dark` class on <html> (dark-first per UI/UX spec). */
+@custom-variant dark (&:is(.dark *));
+
+/* ---- Design tokens: neutral (zinc/slate) palette + single blue accent ---- */
+:root {
+  --background: #ffffff;
+  --foreground: #09090b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #3b82f6;
+  --accent: #2563eb;
+  --accent-foreground: #ffffff;
+  --sidebar: #fafafa;
+  --radius: 0.625rem;
+}
+
+.dark {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --muted: #18181b;
+  --muted-foreground: #a1a1aa;
+  --card: #0c0c0f;
+  --card-foreground: #fafafa;
+  --border: #27272a;
+  --input: #27272a;
+  --ring: #3b82f6;
+  --accent: #3b82f6;
+  --accent-foreground: #ffffff;
+  --sidebar: #0c0c0f;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-sidebar: var(--sidebar);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
+  }
+}
