@@ -6,13 +6,14 @@ with a small, intention-revealing API instead of raw sessions.
 
 from __future__ import annotations
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.domain.enums import ImportStatus
 from app.infrastructure.db.models import (
     FileModel,
     FunctionModel,
+    LessonModel,
     OverviewModel,
     RepositoryModel,
     UserModel,
@@ -156,3 +157,33 @@ class OverviewRepository:
         self._session.commit()
         self._session.refresh(overview)
         return overview
+
+
+class LessonRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def list_for_repository(self, repository_id: int) -> list[LessonModel]:
+        return list(
+            self._session.scalars(
+                select(LessonModel)
+                .where(LessonModel.repository_id == repository_id)
+                .order_by(LessonModel.order_index)
+            )
+        )
+
+    def replace(self, repository_id: int, lessons: list[dict]) -> list[LessonModel]:
+        """Replace all lessons for a repository with a freshly generated set."""
+        self._session.execute(delete(LessonModel).where(LessonModel.repository_id == repository_id))
+        models = [
+            LessonModel(
+                repository_id=repository_id,
+                order_index=index,
+                title=str(lesson.get("title", f"Lesson {index + 1}")),
+                content=str(lesson.get("content", "")),
+            )
+            for index, lesson in enumerate(lessons)
+        ]
+        self._session.add_all(models)
+        self._session.commit()
+        return self.list_for_repository(repository_id)

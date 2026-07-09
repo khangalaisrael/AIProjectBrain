@@ -112,3 +112,12 @@ class OverviewOut(BaseModel):
     technologies: list[str]
     features: list[str]
     folder_map: list[FolderMapItem]
+
+
+class LessonOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    order_index: int
+    title: str
+    content: str

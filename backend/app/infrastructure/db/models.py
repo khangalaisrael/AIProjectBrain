@@ -127,3 +127,18 @@ class OverviewModel(TimestampMixin, Base):
     architecture_style: Mapped[str | None] = mapped_column(String(255), nullable=True)
     technologies: Mapped[list[str]] = mapped_column(JSON, default=list)
     features: Mapped[list[str]] = mapped_column(JSON, default=list)
+
+
+class LessonModel(TimestampMixin, Base):
+    """A single generated course lesson for a repository."""
+
+    __tablename__ = "lessons"
+    __table_args__ = (Index("ix_lessons_repository_order", "repository_id", "order_index"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    repository_id: Mapped[int] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    order_index: Mapped[int] = mapped_column(nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)

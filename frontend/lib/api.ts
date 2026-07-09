@@ -163,3 +163,16 @@ export const getOverview = (repositoryId: number) =>
 
 export const generateOverview = (repositoryId: number) =>
   apiFetch<Overview>(`/repositories/${repositoryId}/overview`, { method: "POST" });
+
+export interface Lesson {
+  id: number;
+  order_index: number;
+  title: string;
+  content: string;
+}
+
+export const getLessons = (repositoryId: number) =>
+  apiFetch<Lesson[]>(`/repositories/${repositoryId}/lessons`);
+
+export const generateCourse = (repositoryId: number) =>
+  apiFetch<Lesson[]>(`/repositories/${repositoryId}/lessons`, { method: "POST" });

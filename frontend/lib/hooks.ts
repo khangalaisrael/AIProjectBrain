@@ -5,11 +5,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   explainFile,
+  generateCourse,
   generateOverview,
   getCurrentUser,
   getFile,
   getFiles,
   getGitHubRepositories,
+  getLessons,
   getOverview,
   getRepositories,
   importRepository,
@@ -114,6 +116,24 @@ export function useGenerateOverview() {
     mutationFn: (repositoryId: number) => generateOverview(repositoryId),
     onSuccess: (data, repositoryId) => {
       queryClient.setQueryData(["overview", repositoryId], data);
+    },
+  });
+}
+
+export function useLessons(repositoryId: number | null) {
+  return useQuery({
+    queryKey: ["lessons", repositoryId],
+    queryFn: () => getLessons(repositoryId as number),
+    enabled: repositoryId !== null,
+  });
+}
+
+export function useGenerateCourse() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (repositoryId: number) => generateCourse(repositoryId),
+    onSuccess: (data, repositoryId) => {
+      queryClient.setQueryData(["lessons", repositoryId], data);
     },
   });
 }
