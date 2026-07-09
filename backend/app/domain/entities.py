@@ -54,3 +54,16 @@ class CodeFunction:
     start_line: int
     end_line: int
     signature: str | None = None
+
+
+@dataclass(slots=True)
+class CodeChunk:
+    """An embeddable unit of code (one function) plus retrieval metadata."""
+
+    function_id: int
+    repository_id: int
+    file_path: str
+    name: str
+    start_line: int
+    end_line: int
+    code: str

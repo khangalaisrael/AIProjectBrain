@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.application.chat_service import ChatService
 from app.application.repository_service import RepositoryService
 from app.infrastructure.db.models import UserModel
+from app.infrastructure.db.repositories import RepositoryRepository
 from app.infrastructure.db.session import get_db
 from app.presentation.dependencies import get_current_user
 from app.presentation.schemas import (
+    ChatRequest,
+    ChatResponse,
+    CitationOut,
     GitHubRepoOut,
     ImportRepositoryRequest,
     RepositoryOut,
@@ -56,3 +61,30 @@ async def import_repository(
 ) -> UserModel:
     """Import a repository by ``owner/name`` and queue it for indexing."""
     return await RepositoryService(db).import_repository(current_user, payload.full_name)
+
+
+@router.post("/{repository_id}/chat", response_model=ChatResponse)
+def chat_with_repository(
+    repository_id: int,
+    payload: ChatRequest,
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ChatResponse:
+    """Ask a question about an indexed repository (RAG over its code)."""
+    repo = RepositoryRepository(db).get_by_id(repository_id)
+    if repo is None or repo.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repository not found")
+
+    result = ChatService().answer(repository_id, payload.question)
+    return ChatResponse(
+        answer=result.answer,
+        citations=[
+            CitationOut(
+                file_path=c.file_path,
+                name=c.name,
+                start_line=c.start_line,
+                end_line=c.end_line,
+            )
+            for c in result.citations
+        ],
+    )

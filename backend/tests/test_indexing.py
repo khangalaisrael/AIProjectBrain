@@ -36,14 +36,19 @@ def test_index_directory_persists_files_and_functions(db_session, tmp_path: Path
     (tmp_path / "README.md").write_text("# docs", encoding="utf-8")
 
     repo = _make_repo(db_session)
-    indexed = IndexingService(db_session).index_directory(repo, tmp_path)
+    chunks = IndexingService(db_session).index_directory(repo, tmp_path)
 
-    assert indexed == 2  # app.py + util.js only
     files = db_session.scalars(select(FileModel)).all()
     assert {f.path for f in files} == {"app.py", "util.js"}
 
     functions = db_session.scalars(select(FunctionModel)).all()
     assert {fn.name for fn in functions} == {"main", "helper"}
+
+    # One chunk per function, carrying the code text for embedding.
+    assert {c.name for c in chunks} == {"main", "helper"}
+    main_chunk = next(c for c in chunks if c.name == "main")
+    assert "def main" in main_chunk.code
+    assert main_chunk.function_id is not None
 
 
 def test_run_clones_local_repo_and_marks_ready(db_session, tmp_path: Path):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.enums import ImportStatus
 
@@ -52,3 +52,19 @@ class RepositoryOut(BaseModel):
     default_branch: str
     status: ImportStatus
     error_message: str | None = None
+
+
+class ChatRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=4000)
+
+
+class CitationOut(BaseModel):
+    file_path: str
+    name: str
+    start_line: int
+    end_line: int
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    citations: list[CitationOut]

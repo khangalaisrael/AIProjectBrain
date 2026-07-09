@@ -78,3 +78,54 @@ def test_list_imported_repositories(client, auth_headers, mock_github, enqueued)
 
 def test_repositories_require_auth(client):
     assert client.get("/api/v1/repositories").status_code in (401, 403)
+
+
+def _import_repo(client, headers) -> int:
+    resp = client.post("/api/v1/repositories", headers=headers, json={"full_name": "octocat/demo"})
+    return resp.json()["id"]
+
+
+def test_chat_returns_answer_and_citations(
+    client, auth_headers, mock_github, enqueued, monkeypatch
+):
+    from app.application.chat_service import ChatAnswer, Citation
+
+    repo_id = _import_repo(client, auth_headers)
+
+    class FakeChatService:
+        def answer(self, repository_id: int, question: str) -> ChatAnswer:
+            assert repository_id == repo_id
+            return ChatAnswer(
+                answer="It handles requests.",
+                citations=[Citation("app/api.py", "handle", 1, 9)],
+            )
+
+    monkeypatch.setattr(
+        "app.presentation.api.v1.repositories.ChatService", lambda: FakeChatService()
+    )
+
+    response = client.post(
+        f"/api/v1/repositories/{repo_id}/chat",
+        headers=auth_headers,
+        json={"question": "What does the API do?"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["answer"] == "It handles requests."
+    assert body["citations"][0]["file_path"] == "app/api.py"
+
+
+def test_chat_on_unknown_repo_is_404(client, auth_headers):
+    response = client.post(
+        "/api/v1/repositories/9999/chat",
+        headers=auth_headers,
+        json={"question": "hi"},
+    )
+    assert response.status_code == 404
+
+
+def test_chat_requires_auth(client):
+    assert client.post("/api/v1/repositories/1/chat", json={"question": "hi"}).status_code in (
+        401,
+        403,
+    )

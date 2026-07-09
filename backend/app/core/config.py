@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-4o"
     embedding_provider: str = "openai"
     embedding_model: str = "text-embedding-3-small"
+    # text-embedding-3-small returns 1536-dim vectors
+    embedding_dim: int = 1536
+    qdrant_collection: str = "code_chunks"
+    # Number of code chunks retrieved per RAG question
+    rag_top_k: int = 6
 
     # Observability
     sentry_dsn: str | None = None
