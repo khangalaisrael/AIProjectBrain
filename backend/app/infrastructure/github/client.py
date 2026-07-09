@@ -76,6 +76,23 @@ class GitHubClient:
         """Fetch a single repository by ``owner/name``."""
         return await self._get(token, f"/repos/{full_name}")
 
+    async def get_file_content(
+        self, token: str, full_name: str, path: str, ref: str | None = None
+    ) -> str:
+        """Fetch a text file's contents from a repository via the raw media type."""
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            response = await client.get(
+                f"{GITHUB_API_URL}/repos/{full_name}/contents/{path}",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/vnd.github.raw+json",
+                },
+                params={"ref": ref} if ref else None,
+            )
+        if response.status_code != 200:
+            raise GitHubError(f"Could not fetch {path} ({response.status_code})")
+        return response.text
+
     async def _get(self, token: str, path: str, params: dict | None = None) -> dict | list:
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             response = await client.get(

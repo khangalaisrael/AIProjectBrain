@@ -68,3 +68,32 @@ class CitationOut(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     citations: list[CitationOut]
+
+
+class FileTreeItem(BaseModel):
+    id: int
+    path: str
+    language: str | None = None
+    function_count: int
+
+
+class FunctionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    signature: str | None = None
+    start_line: int
+    end_line: int
+
+
+class FileDetailOut(BaseModel):
+    id: int
+    path: str
+    language: str | None = None
+    content: str
+    functions: list[FunctionOut]
+
+
+class ExplainResponse(BaseModel):
+    explanation: str

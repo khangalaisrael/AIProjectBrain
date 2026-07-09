@@ -6,11 +6,11 @@ with a small, intention-revealing API instead of raw sessions.
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.domain.enums import ImportStatus
-from app.infrastructure.db.models import RepositoryModel, UserModel
+from app.infrastructure.db.models import FileModel, FunctionModel, RepositoryModel, UserModel
 
 
 class UserRepository:
@@ -92,3 +92,34 @@ class RepositoryRepository:
         repo.status = status
         repo.error_message = error_message
         self._session.commit()
+
+
+class FileRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def list_for_repository(self, repository_id: int) -> list[tuple[FileModel, int]]:
+        """Return (file, function_count) pairs ordered by path."""
+        rows = self._session.execute(
+            select(FileModel, func.count(FunctionModel.id))
+            .outerjoin(FunctionModel, FunctionModel.file_id == FileModel.id)
+            .where(FileModel.repository_id == repository_id)
+            .group_by(FileModel.id)
+            .order_by(FileModel.path)
+        ).all()
+        return [(file, count) for file, count in rows]
+
+    def get(self, repository_id: int, file_id: int) -> FileModel | None:
+        file = self._session.get(FileModel, file_id)
+        if file is None or file.repository_id != repository_id:
+            return None
+        return file
+
+    def list_functions(self, file_id: int) -> list[FunctionModel]:
+        return list(
+            self._session.scalars(
+                select(FunctionModel)
+                .where(FunctionModel.file_id == file_id)
+                .order_by(FunctionModel.start_line)
+            )
+        )

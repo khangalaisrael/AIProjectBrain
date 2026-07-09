@@ -4,7 +4,10 @@ import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  explainFile,
   getCurrentUser,
+  getFile,
+  getFiles,
   getGitHubRepositories,
   getRepositories,
   importRepository,
@@ -68,5 +71,28 @@ export function useImportRepository() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["repositories"] });
     },
+  });
+}
+
+export function useFiles(repositoryId: number | null) {
+  return useQuery({
+    queryKey: ["files", repositoryId],
+    queryFn: () => getFiles(repositoryId as number),
+    enabled: repositoryId !== null,
+  });
+}
+
+export function useFile(repositoryId: number | null, fileId: number | null) {
+  return useQuery({
+    queryKey: ["file", repositoryId, fileId],
+    queryFn: () => getFile(repositoryId as number, fileId as number),
+    enabled: repositoryId !== null && fileId !== null,
+  });
+}
+
+export function useExplainFile() {
+  return useMutation({
+    mutationFn: ({ repositoryId, fileId }: { repositoryId: number; fileId: number }) =>
+      explainFile(repositoryId, fileId),
   });
 }

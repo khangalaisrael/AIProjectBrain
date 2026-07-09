@@ -108,3 +108,37 @@ export const askRepository = (repositoryId: number, question: string) =>
     method: "POST",
     body: JSON.stringify({ question }),
   });
+
+export interface FileTreeItem {
+  id: number;
+  path: string;
+  language: string | null;
+  function_count: number;
+}
+
+export interface FunctionItem {
+  id: number;
+  name: string;
+  signature: string | null;
+  start_line: number;
+  end_line: number;
+}
+
+export interface FileDetail {
+  id: number;
+  path: string;
+  language: string | null;
+  content: string;
+  functions: FunctionItem[];
+}
+
+export const getFiles = (repositoryId: number) =>
+  apiFetch<FileTreeItem[]>(`/repositories/${repositoryId}/files`);
+
+export const getFile = (repositoryId: number, fileId: number) =>
+  apiFetch<FileDetail>(`/repositories/${repositoryId}/files/${fileId}`);
+
+export const explainFile = (repositoryId: number, fileId: number) =>
+  apiFetch<{ explanation: string }>(`/repositories/${repositoryId}/files/${fileId}/explain`, {
+    method: "POST",
+  });
