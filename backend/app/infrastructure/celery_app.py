@@ -1,9 +1,5 @@
 """Celery application (background worker entry point).
 
-No tasks are registered yet. Repository indexing, parsing, embedding generation,
-and documentation generation will be defined as Celery tasks in later phases so
-that long-running work stays off the request path.
-
 Run a worker with:
     celery -A app.infrastructure.celery_app.celery_app worker --loglevel=info
 """
@@ -20,6 +16,10 @@ celery_app = Celery(
     "ai_project_brain",
     broker=_settings.redis_url,
     backend=_settings.redis_url,
+    # A worker must import the task module to register the task. The web process
+    # gets away without this because it imports `tasks` lazily when enqueuing,
+    # but a standalone worker would answer `index_repository` with NotRegistered.
+    include=["app.infrastructure.tasks"],
 )
 
 celery_app.conf.update(

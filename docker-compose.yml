@@ -1,10 +1,18 @@
-# Local development services for AI Project Brain.
-# App processes (backend/frontend) run on the host during scaffolding —
-# this file provisions only the stateful backing services.
+# Services for AI Project Brain.
 #
-#   docker compose up -d      # start Postgres, Redis, Qdrant
-#   docker compose ps         # check health
-#   docker compose down       # stop (add -v to wipe volumes)
+# By default this file provisions only the stateful backing services, because
+# the usual development loop runs the apps on the host:
+#
+#   docker compose up -d              # Postgres, Redis, Qdrant
+#   docker compose ps                 # check health
+#   docker compose down               # stop (add -v to wipe volumes)
+#
+# The apps themselves sit behind a profile, so they start only when asked:
+#
+#   docker compose --profile apps up -d --build
+#
+# That path runs a real Celery worker against Redis instead of
+# CELERY_TASK_ALWAYS_EAGER, which is a development shortcut.
 
 services:
   postgres:
@@ -50,6 +58,69 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # ---- Applications (profile: apps) ----
+
+  backend:
+    profiles: ["apps"]
+    build:
+      context: ./backend
+    container_name: brain-backend
+    environment: &backend_env
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-brain}:${POSTGRES_PASSWORD:-change_me}@postgres:5432/${POSTGRES_DB:-project_brain}
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+      # The whole point of this profile: a real broker and a real worker.
+      CELERY_TASK_ALWAYS_EAGER: "false"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?set OPENAI_API_KEY in .env}
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:?set TOKEN_ENCRYPTION_KEY in .env}
+      JWT_SECRET: ${JWT_SECRET:-change_me}
+      GITHUB_OAUTH_CLIENT_ID: ${GITHUB_OAUTH_CLIENT_ID:-}
+      GITHUB_OAUTH_CLIENT_SECRET: ${GITHUB_OAUTH_CLIENT_SECRET:-}
+      GITHUB_OAUTH_REDIRECT_URI: ${GITHUB_OAUTH_REDIRECT_URI:-http://localhost:8000/api/v1/auth/github/callback}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-http://localhost:3000}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    # The API owns the schema; the worker must not race it to migrate.
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  worker:
+    profiles: ["apps"]
+    build:
+      context: ./backend
+    container_name: brain-worker
+    environment: *backend_env
+    depends_on:
+      backend:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    command: celery -A app.infrastructure.celery_app.celery_app worker --loglevel=info
+
+  frontend:
+    profiles: ["apps"]
+    build:
+      context: ./frontend
+      args:
+        # Inlined into the bundle at build time — the browser, not the container,
+        # is what calls this URL.
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000/api/v1}
+    container_name: brain-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_started
 
 volumes:
   postgres_data:

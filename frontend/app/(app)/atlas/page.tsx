@@ -21,7 +21,7 @@ const MODES = [
   { id: "request", label: "Request Flow", ready: true },
   { id: "auth", label: "Authentication", ready: false },
   { id: "dependency", label: "Dependency", ready: true },
-  { id: "database", label: "Database", ready: false },
+  { id: "database", label: "Database", ready: true },
   { id: "deployment", label: "Deployment", ready: false },
   { id: "event", label: "Event Flow", ready: false },
 ] as const;
@@ -30,13 +30,18 @@ type ModeId = (typeof MODES)[number]["id"];
 
 const DEEPEST_LEVEL = 4;
 
-/** Each focused mode is the same graph with one relationship brought forward. */
+/** Modes that bring one *relationship* forward and fade the rest. */
 const EMPHASIS: Partial<Record<ModeId, readonly GraphEdgeKind[]>> = {
   dependency: ["imports"],
 };
 
+/** Modes that bring forward what a node *is*, via a flag the builder sets. */
+const EMPHASIS_META: Partial<Record<ModeId, "has_models">> = {
+  database: "has_models",
+};
+
 /** Modes that navigate the map rather than replay something through it. */
-const SEARCHABLE: readonly ModeId[] = ["architecture", "dependency"];
+const SEARCHABLE: readonly ModeId[] = ["architecture", "dependency", "database"];
 
 export default function AtlasPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -172,6 +177,7 @@ export default function AtlasPage() {
                 focusKey={focusKey}
                 onFocusHandled={() => setFocusKey(null)}
                 emphasisKinds={EMPHASIS[mode]}
+                emphasisMeta={EMPHASIS_META[mode]}
               />
             </ReactFlowProvider>
           )
@@ -189,7 +195,9 @@ export default function AtlasPage() {
           ? "Press play to watch the request travel its call path, or click a card to jump to that step. Call edges are resolved by name and are approximate."
           : mode === "dependency"
             ? "Only import edges are lit; everything a module doesn't import is faded. Select a card to switch to focus mode. Import edges are resolved by name and are approximate — the graph under-reports rather than guesses."
-            : "Zoom or press Enter to dive into a node, Esc to surface. Arrow keys hop between cards. Call and import edges are resolved by name and are approximate."}
+            : mode === "database"
+              ? "Lit cards are ORM model classes and everything that contains one. Detection is name-based — a class extending a mapped base in a file that imports an ORM. A repository indexed before this mode existed shows nothing; re-index it."
+              : "Zoom or press Enter to dive into a node, Esc to surface. Arrow keys hop between cards. Call and import edges are resolved by name and are approximate."}
       </p>
     </div>
   );

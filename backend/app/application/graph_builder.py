@@ -58,6 +58,56 @@ _SYSTEM_LABELS = {
     "infrastructure": "Infrastructure",
 }
 
+# Base classes that mark a persistence model. `BaseModel` is deliberately
+# absent: that is pydantic, which validates rather than persists.
+_ORM_BASES = {
+    "Base",
+    "DeclarativeBase",
+    "Model",
+    "db.Model",
+    "models.Model",
+    "SQLModel",
+    "Document",
+}
+
+# ...but `Base` and `Model` are common names, so a matching base only counts
+# when the file actually imports an ORM. Precision over recall, as everywhere
+# else in this module.
+_ORM_MODULES = (
+    "sqlalchemy",
+    "sqlmodel",
+    "django.db",
+    "mongoengine",
+    "beanie",
+    "peewee",
+    "tortoise",
+    "flask_sqlalchemy",
+)
+
+# Set on a model class, and on every ancestor that contains one, so the Atlas
+# can light the database layer at any zoom level.
+META_HAS_MODELS = "has_models"
+
+
+def _imports_an_orm(parsed: ParsedFile) -> bool:
+    return any(
+        parsed_import.module.startswith(orm)
+        for parsed_import in parsed.imports
+        for orm in _ORM_MODULES
+    )
+
+
+def _is_orm_model(klass, parsed: ParsedFile) -> bool:
+    """A class that an ORM will map to a table.
+
+    Name-based, like every other resolution here: a class extending ``Base`` in
+    a file that imports SQLAlchemy is a model. One that extends ``Base`` in a
+    file that doesn't is left alone.
+    """
+    if not any(base in _ORM_BASES for base in klass.extends):
+        return False
+    return _imports_an_orm(parsed)
+
 
 @dataclass
 class _Graph:
@@ -130,8 +180,27 @@ class GraphBuilder:
         self._add_import_edges(parsed_by_path, set(paths))
         self._add_call_edges(parsed_by_path, function_index)
         self._add_inheritance_edges(parsed_by_path)
+        self._propagate_model_flag()
 
         return list(self._graph.nodes.values()), self._graph.edges
+
+    def _propagate_model_flag(self) -> None:
+        """Mark every ancestor of a model class as containing one.
+
+        Zooming out must not lose the database layer: if a class is a model, its
+        file, folders, system and the repository all carry the flag too.
+        """
+        nodes = self._graph.nodes
+        seeds = [key for key, node in nodes.items() if node["meta"].get(META_HAS_MODELS)]
+
+        for key in seeds:
+            parent = nodes[key]["parent_key"]
+            while parent is not None and parent in nodes:
+                ancestor = nodes[parent]
+                if ancestor["meta"].get(META_HAS_MODELS):
+                    break  # this branch is already marked all the way up
+                ancestor["meta"][META_HAS_MODELS] = True
+                parent = ancestor["parent_key"]
 
     # -- nodes ---------------------------------------------------------------
 
@@ -223,6 +292,13 @@ class GraphBuilder:
 
         for path, parsed in parsed_by_path.items():
             for klass in parsed.classes:
+                meta = {
+                    "file_id": self._file_ids.get(path),
+                    "start_line": klass.start_line,
+                    "end_line": klass.end_line,
+                }
+                if _is_orm_model(klass, parsed):
+                    meta[META_HAS_MODELS] = True
                 self._graph.add_node(
                     key=class_key(path, klass.name, klass.start_line),
                     kind=NodeKind.CLASS.value,
@@ -230,11 +306,7 @@ class GraphBuilder:
                     name=klass.name,
                     path=path,
                     parent_key=file_key(path),
-                    meta={
-                        "file_id": self._file_ids.get(path),
-                        "start_line": klass.start_line,
-                        "end_line": klass.end_line,
-                    },
+                    meta=meta,
                 )
 
             for func in parsed.functions:
