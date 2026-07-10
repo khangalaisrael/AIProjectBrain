@@ -4,6 +4,7 @@ import { PanelLeft, Search } from "lucide-react";
 
 import { AuthControls } from "@/components/auth/auth-controls";
 import { Button } from "@/components/ui/button";
+import { useCommandPaletteStore } from "@/lib/command-palette-store";
 
 interface TopNavProps {
   onToggleSidebar: () => void;
@@ -18,6 +19,7 @@ export function TopNav({ onToggleSidebar }: TopNavProps) {
 
       <button
         type="button"
+        onClick={() => useCommandPaletteStore.getState().setOpen(true)}
         className="border-border bg-muted/40 text-muted-foreground hover:bg-muted flex h-9 w-full max-w-sm items-center gap-2 rounded-md border px-3 text-sm transition-colors"
       >
         <Search className="size-4" />

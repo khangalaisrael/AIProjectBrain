@@ -1,14 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ReactFlow, useOnViewportChange, useReactFlow, type Edge, type Node } from "@xyflow/react";
+import {
+  Background,
+  BackgroundVariant,
+  MiniMap,
+  ReactFlow,
+  useOnViewportChange,
+  useReactFlow,
+  type Edge,
+  type Node,
+} from "@xyflow/react";
+import { AnimatePresence } from "framer-motion";
 import { ChevronRight, Loader2 } from "lucide-react";
 
 import "@xyflow/react/dist/base.css";
 
 import { type Graph, type GraphEdge, type GraphNode } from "@/lib/api";
 import { useGraphChildren } from "@/lib/hooks";
-import { AtlasNode, type AtlasNodeData } from "@/components/atlas/atlas-node";
+import { AtlasNode, ICONS, type AtlasNodeData } from "@/components/atlas/atlas-node";
+import { AtlasEdge, type AtlasEdgeData, type AtlasEdgeState } from "@/components/atlas/atlas-edge";
 import { DetailsPanel } from "@/components/atlas/details-panel";
 import { layoutGraph, type PositionedNode } from "@/components/atlas/elk-layout";
 import { cn } from "@/lib/utils";
@@ -20,12 +31,17 @@ const ZOOM_EXIT = 0.55;
 const BASE_ZOOM = 1;
 
 const nodeTypes = { atlas: AtlasNode };
+const edgeTypes = { atlas: AtlasEdge };
 
-const EDGE_TONE: Record<string, string> = {
-  imports: "#3f3f46",
-  calls: "#f59e0b",
-  extends: "#a78bfa",
-  implements: "#a78bfa",
+/** Muted per-kind fills for the minimap. */
+const MINIMAP_TONE: Record<string, string> = {
+  repository: "#1d4ed8",
+  system: "#1d4ed8",
+  folder: "#0369a1",
+  file: "#047857",
+  class: "#6d28d9",
+  function: "#b45309",
+  external: "#3f3f46",
 };
 
 /** Leaves have nothing to dive into. */
@@ -52,9 +68,20 @@ export function AtlasCanvas({
 
   const byKey = useMemo(() => new Map(fullGraph.nodes.map((n) => [n.key, n])), [fullGraph.nodes]);
 
+  // How many children each node has, for the card's count badge.
+  const childCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const node of fullGraph.nodes) {
+      if (!node.parent_key) continue;
+      counts.set(node.parent_key, (counts.get(node.parent_key) ?? 0) + 1);
+    }
+    return counts;
+  }, [fullGraph.nodes]);
+
   const [stack, setStack] = useState<string[]>([rootKey]);
   const scope = stack[stack.length - 1];
   const [selected, setSelected] = useState<GraphNode | null>(null);
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
   const [positioned, setPositioned] = useState<PositionedNode[]>([]);
   const [laidOutFor, setLaidOutFor] = useState<string | null>(null);
   const pendingFocus = useRef<string | null>(null);
@@ -134,30 +161,48 @@ export function AtlasCanvas({
     setStack((prev) => prev.slice(0, index + 1));
   }, []);
 
-  /** The enterable node nearest the middle of the screen. */
-  const nodeAtCrosshair = useCallback((): GraphNode | null => {
-    const container = document.getElementById("atlas-canvas");
-    if (!container) return null;
-    const rect = container.getBoundingClientRect();
-    const center = screenToFlowPosition({
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
-    });
+  /** Select a node in the current scope and glide the camera onto it. */
+  const navigateTo = useCallback(
+    (key: string) => {
+      const target = positioned.find((n) => n.key === key);
+      const graphNode = byKey.get(key);
+      if (!target || !graphNode) return;
+      setSelected(graphNode);
+      setCenter(target.x + target.width / 2, target.y + target.height / 2, {
+        zoom: getViewport().zoom,
+        duration: 300,
+      });
+    },
+    [positioned, byKey, setCenter, getViewport],
+  );
 
-    let best: PositionedNode | null = null;
-    let bestDistance = Infinity;
-    for (const node of positioned) {
-      if (!hasChildren(node)) continue;
-      const dx = node.x + node.width / 2 - center.x;
-      const dy = node.y + node.height / 2 - center.y;
-      const distance = dx * dx + dy * dy;
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        best = node;
+  /** The enterable node nearest the middle of the screen. */
+  const nodeAtCrosshair = useCallback(
+    (enterableOnly = true): GraphNode | null => {
+      const container = document.getElementById("atlas-canvas");
+      if (!container) return null;
+      const rect = container.getBoundingClientRect();
+      const center = screenToFlowPosition({
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      });
+
+      let best: PositionedNode | null = null;
+      let bestDistance = Infinity;
+      for (const node of positioned) {
+        if (enterableOnly && !hasChildren(node)) continue;
+        const dx = node.x + node.width / 2 - center.x;
+        const dy = node.y + node.height / 2 - center.y;
+        const distance = dx * dx + dy * dy;
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = node;
+        }
       }
-    }
-    return best;
-  }, [positioned, screenToFlowPosition]);
+      return best;
+    },
+    [positioned, screenToFlowPosition],
+  );
 
   useOnViewportChange({
     onEnd: () => {
@@ -173,6 +218,121 @@ export function AtlasCanvas({
     },
   });
 
+  // Keyboard navigation: arrows hop between cards, Enter dives in, Esc backs out.
+  useEffect(() => {
+    const container = document.getElementById("atlas-canvas");
+    if (!container) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLElement &&
+        (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (event.key === "Enter") {
+        if (selected) {
+          event.preventDefault();
+          enter(selected);
+        }
+        return;
+      }
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (selected) {
+          setSelected(null);
+        } else if (stack.length > 1) {
+          goTo(stack.length - 2);
+        }
+        return;
+      }
+
+      const directions: Record<string, [number, number]> = {
+        ArrowRight: [1, 0],
+        ArrowLeft: [-1, 0],
+        ArrowDown: [0, 1],
+        ArrowUp: [0, -1],
+      };
+      const dir = directions[event.key];
+      if (!dir) return;
+      event.preventDefault();
+
+      const current = selected ? positioned.find((n) => n.key === selected.key) : null;
+      if (!current) {
+        const nearest = nodeAtCrosshair(false);
+        if (nearest) navigateTo(nearest.key);
+        return;
+      }
+
+      const cx = current.x + current.width / 2;
+      const cy = current.y + current.height / 2;
+      let best: PositionedNode | null = null;
+      let bestDistance = Infinity;
+      for (const node of positioned) {
+        if (node.key === current.key) continue;
+        const dx = node.x + node.width / 2 - cx;
+        const dy = node.y + node.height / 2 - cy;
+        // Must lie in the pressed direction, dominant-axis check.
+        const along = dx * dir[0] + dy * dir[1];
+        const across = Math.abs(dx * dir[1]) + Math.abs(dy * dir[0]);
+        if (along <= 0 || across > along * 2) continue;
+        const distance = dx * dx + dy * dy;
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = node;
+        }
+      }
+      if (best) navigateTo(best.key);
+    };
+
+    container.addEventListener("keydown", onKeyDown);
+    return () => container.removeEventListener("keydown", onKeyDown);
+  }, [selected, positioned, stack, enter, goTo, navigateTo, nodeAtCrosshair]);
+
+  // Focus-mode tiers: BFS out from the selection over the visible adjacency.
+  const adjacency = useMemo(() => {
+    const visible = new Set(positioned.map((n) => n.key));
+    const map = new Map<string, Set<string>>();
+    for (const e of children?.edges ?? []) {
+      if (!visible.has(e.source_key) || !visible.has(e.target_key)) continue;
+      if (!map.has(e.source_key)) map.set(e.source_key, new Set());
+      if (!map.has(e.target_key)) map.set(e.target_key, new Set());
+      map.get(e.source_key)!.add(e.target_key);
+      map.get(e.target_key)!.add(e.source_key);
+    }
+    return map;
+  }, [children?.edges, positioned]);
+
+  const tiers = useMemo(() => {
+    if (!selected) return null;
+    const distance = new Map<string, number>([[selected.key, 0]]);
+    let frontier = [selected.key];
+    for (let depth = 1; depth <= 2 && frontier.length > 0; depth++) {
+      const next: string[] = [];
+      for (const key of frontier) {
+        for (const neighbor of adjacency.get(key) ?? []) {
+          if (distance.has(neighbor)) continue;
+          distance.set(neighbor, depth);
+          next.push(neighbor);
+        }
+      }
+      frontier = next;
+    }
+    return distance;
+  }, [selected, adjacency]);
+
+  const tierOf = useCallback(
+    (key: string): 0 | 1 | 2 | 3 => {
+      if (!tiers) return 0;
+      const d = tiers.get(key);
+      return d === undefined ? 3 : (d as 0 | 1 | 2);
+    },
+    [tiers],
+  );
+
   const flowNodes: Node[] = useMemo(
     () =>
       positioned.map((node) => ({
@@ -185,29 +345,48 @@ export function AtlasCanvas({
         data: {
           kind: node.kind,
           label: node.name,
-          sublabel: node.kind === "function" ? undefined : (node.path ?? undefined),
+          description:
+            node.meta.signature ??
+            (node.kind === "function" ? undefined : (node.path ?? undefined)),
           hasChildren: hasChildren(node),
+          childCount: childCounts.get(node.key),
+          lineCount:
+            node.meta.start_line && node.meta.end_line
+              ? node.meta.end_line - node.meta.start_line + 1
+              : undefined,
+          tier: tierOf(node.key),
         } satisfies AtlasNodeData,
       })),
-    [positioned, selected],
+    [positioned, selected, childCounts, tierOf],
   );
 
   const flowEdges: Edge[] = useMemo(() => {
     const visible = new Set(positioned.map((n) => n.key));
     return (children?.edges ?? [])
       .filter((e: GraphEdge) => visible.has(e.source_key) && visible.has(e.target_key))
-      .map((e, i) => ({
-        id: `${e.kind}-${i}`,
-        source: e.source_key,
-        target: e.target_key,
-        animated: e.kind === "calls",
-        style: {
-          stroke: EDGE_TONE[e.kind] ?? "#3f3f46",
-          strokeWidth: Math.min(1 + Math.log2(e.weight + 1), 3),
-          opacity: 0.75,
-        },
-      }));
-  }, [children?.edges, positioned]);
+      .map((e, i) => {
+        const id = `${e.kind}-${i}`;
+        let state: AtlasEdgeState = "normal";
+        if (id === hoveredEdgeId) {
+          state = "active";
+        } else if (selected) {
+          if (e.source_key === selected.key || e.target_key === selected.key) {
+            state = "active";
+          } else if (tierOf(e.source_key) <= 1 && tierOf(e.target_key) <= 1) {
+            state = "normal";
+          } else {
+            state = "dim";
+          }
+        }
+        return {
+          id,
+          source: e.source_key,
+          target: e.target_key,
+          type: "atlas",
+          data: { kind: e.kind, weight: e.weight, state } satisfies AtlasEdgeData,
+        };
+      });
+  }, [children?.edges, positioned, selected, hoveredEdgeId, tierOf]);
 
   const breadcrumb = stack.map((key) => byKey.get(key)).filter(Boolean) as GraphNode[];
   const settling = isLoading || laidOutFor !== scope;
@@ -215,26 +394,32 @@ export function AtlasCanvas({
   return (
     <div
       id="atlas-canvas"
-      className="border-border relative h-full w-full overflow-hidden rounded-lg border"
+      tabIndex={0}
+      className="border-border rounded-card relative h-full w-full overflow-hidden border outline-none"
     >
       {/* Breadcrumb — the way back out of the map. */}
-      <nav className="border-border bg-background/80 absolute top-4 left-4 z-10 flex items-center gap-1 rounded-lg border px-3 py-2 text-xs backdrop-blur">
-        {breadcrumb.map((node, i) => (
-          <span key={node.key} className="flex items-center gap-1">
-            {i > 0 && <ChevronRight className="text-muted-foreground/50 size-3" />}
-            <button
-              onClick={() => goTo(i)}
-              className={cn(
-                "max-w-[10rem] truncate transition-colors",
-                i === breadcrumb.length - 1
-                  ? "text-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {node.name}
-            </button>
-          </span>
-        ))}
+      <nav className="border-border/70 bg-card/80 shadow-card absolute top-4 left-4 z-10 flex items-center gap-1 rounded-full border px-4 py-2 text-xs backdrop-blur">
+        {breadcrumb.map((node, i) => {
+          const isCurrent = i === breadcrumb.length - 1;
+          const Icon = ICONS[node.kind];
+          return (
+            <span key={node.key} className="flex items-center gap-1.5">
+              {i > 0 && <ChevronRight className="text-muted-foreground/50 size-3" />}
+              <button
+                onClick={() => goTo(i)}
+                className={cn(
+                  "flex max-w-[10rem] items-center gap-1.5 truncate transition-colors",
+                  isCurrent
+                    ? "text-foreground font-medium"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {isCurrent && <Icon className="size-3 shrink-0" />}
+                <span className="truncate">{node.name}</span>
+              </button>
+            </span>
+          );
+        })}
         {settling && <Loader2 className="text-muted-foreground ml-1 size-3 animate-spin" />}
       </nav>
 
@@ -248,6 +433,7 @@ export function AtlasCanvas({
         nodes={flowNodes}
         edges={flowEdges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         onNodeClick={(_, node) => {
           const graphNode = byKey.get(node.id);
           if (graphNode) setSelected(graphNode);
@@ -256,6 +442,9 @@ export function AtlasCanvas({
           const graphNode = byKey.get(node.id);
           if (graphNode) enter(graphNode);
         }}
+        onPaneClick={() => setSelected(null)}
+        onEdgeMouseEnter={(_, edge) => setHoveredEdgeId(edge.id)}
+        onEdgeMouseLeave={() => setHoveredEdgeId(null)}
         // Strip every trace of the node-editor: nothing is draggable or connectable.
         nodesDraggable={false}
         nodesConnectable={false}
@@ -265,15 +454,33 @@ export function AtlasCanvas({
         minZoom={0.2}
         maxZoom={3}
         className="bg-background"
-      />
-
-      {selected && (
-        <DetailsPanel
-          repositoryId={repositoryId}
-          node={selected}
-          onClose={() => setSelected(null)}
+      >
+        <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="var(--atlas-dot)" />
+        <MiniMap
+          pannable
+          zoomable
+          position="bottom-right"
+          nodeColor={(node) => MINIMAP_TONE[(node.data as AtlasNodeData).kind] ?? "#3f3f46"}
+          nodeBorderRadius={8}
+          maskColor="rgb(9 9 11 / 0.75)"
+          bgColor="var(--card)"
+          className="!border-border !h-28 !w-44 overflow-hidden !rounded-xl !border"
         />
-      )}
+      </ReactFlow>
+
+      <AnimatePresence>
+        {selected && (
+          <DetailsPanel
+            key={selected.key}
+            repositoryId={repositoryId}
+            node={selected}
+            edges={children?.edges ?? []}
+            byKey={byKey}
+            onNavigate={navigateTo}
+            onClose={() => setSelected(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

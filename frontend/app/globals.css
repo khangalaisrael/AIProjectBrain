@@ -18,6 +18,11 @@
   --accent-foreground: #ffffff;
   --sidebar: #fafafa;
   --radius: 0.625rem;
+  --radius-card: 1.125rem;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.08), 0 4px 16px -4px rgb(0 0 0 / 0.1);
+  --shadow-card-hover: 0 2px 4px rgb(0 0 0 / 0.08), 0 12px 32px -8px rgb(0 0 0 / 0.14);
+  --shadow-glow: 0 0 0 1px rgb(37 99 235 / 0.4), 0 0 24px -4px rgb(37 99 235 / 0.25);
+  --atlas-dot: #e4e4e7;
 }
 
 .dark {
@@ -33,6 +38,10 @@
   --accent: #3b82f6;
   --accent-foreground: #ffffff;
   --sidebar: #0c0c0f;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 16px -4px rgb(0 0 0 / 0.5);
+  --shadow-card-hover: 0 2px 4px rgb(0 0 0 / 0.4), 0 12px 32px -8px rgb(0 0 0 / 0.6);
+  --shadow-glow: 0 0 0 1px rgb(59 130 246 / 0.5), 0 0 24px -4px rgb(59 130 246 / 0.35);
+  --atlas-dot: #1c1c20;
 }
 
 @theme inline {
@@ -51,6 +60,25 @@
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
+  --radius-card: var(--radius-card);
+  --shadow-card: var(--shadow-card);
+  --shadow-card-hover: var(--shadow-card-hover);
+  --shadow-glow: var(--shadow-glow);
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 500ms;
+}
+
+/* Flowing dash for edges that carry movement (calls). */
+@keyframes atlas-edge-flow {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+.atlas-edge-animated {
+  stroke-dasharray: 6 10;
+  animation: atlas-edge-flow 0.9s linear infinite;
 }
 
 @layer base {

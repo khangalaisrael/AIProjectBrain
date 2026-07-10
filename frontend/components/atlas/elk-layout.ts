@@ -6,13 +6,13 @@ const elk = new ELK();
 
 /** Node footprint per kind — bigger containers, smaller leaves. */
 export const NODE_SIZE: Record<GraphNodeKind, { width: number; height: number }> = {
-  repository: { width: 240, height: 76 },
-  system: { width: 220, height: 72 },
-  folder: { width: 190, height: 60 },
-  file: { width: 190, height: 56 },
-  class: { width: 180, height: 56 },
-  function: { width: 170, height: 48 },
-  external: { width: 160, height: 44 },
+  repository: { width: 260, height: 88 },
+  system: { width: 240, height: 84 },
+  folder: { width: 210, height: 72 },
+  file: { width: 210, height: 72 },
+  class: { width: 200, height: 72 },
+  function: { width: 190, height: 64 },
+  external: { width: 170, height: 52 },
 };
 
 export interface PositionedNode extends GraphNode {
@@ -39,7 +39,7 @@ export async function layoutGraph(
     layoutOptions: {
       "elk.algorithm": "layered",
       "elk.direction": "RIGHT",
-      "elk.spacing.nodeNode": "72",
+      "elk.spacing.nodeNode": "88",
       "elk.layered.spacing.nodeNodeBetweenLayers": "140",
       "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
       "elk.edgeRouting": "SPLINES",

@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { Map as MapIcon, Search, Sparkles } from "lucide-react";
 
-import { type GraphNode } from "@/lib/api";
 import { useAuth, useGraph, useRepositories } from "@/lib/hooks";
+import { useCommandPaletteStore } from "@/lib/command-palette-store";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SignInButton } from "@/components/auth/auth-controls";
@@ -30,8 +30,8 @@ export default function AtlasPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { data: repositories } = useRepositories(isAuthenticated);
   const [repositoryId, setRepositoryId] = useState<number | null>(null);
-  const [query, setQuery] = useState("");
   const [focusKey, setFocusKey] = useState<string | null>(null);
+  const { setOpen: setPaletteOpen, setAtlasActions } = useCommandPaletteStore();
 
   const readyRepos = useMemo(
     () => (repositories ?? []).filter((r) => r.status === "ready"),
@@ -42,7 +42,7 @@ export default function AtlasPage() {
     if (repositoryId === null && readyRepos.length > 0) setRepositoryId(readyRepos[0].id);
   }, [readyRepos, repositoryId]);
 
-  // The whole graph, used for search and for walking a node's ancestor chain.
+  // The whole graph, used for palette search and for walking ancestor chains.
   const graph = useGraph(repositoryId, DEEPEST_LEVEL);
 
   const rootKey = useMemo(
@@ -50,11 +50,15 @@ export default function AtlasPage() {
     [graph.data],
   );
 
-  const matches = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q || !graph.data) return [];
-    return graph.data.nodes.filter((n) => n.name.toLowerCase().includes(q)).slice(0, 8);
-  }, [query, graph.data]);
+  // Contribute this map's nodes to the global Ctrl+K palette while mounted.
+  useEffect(() => {
+    if (!graph.data) return;
+    setAtlasActions({
+      nodes: graph.data.nodes,
+      onSelect: (key) => setFocusKey(key),
+    });
+    return () => setAtlasActions(null);
+  }, [graph.data, setAtlasActions]);
 
   if (!authLoading && !isAuthenticated) {
     return (
@@ -104,16 +108,16 @@ export default function AtlasPage() {
 
       {/* Modes + search */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="border-border inline-flex flex-wrap rounded-md border p-0.5">
+        <div className="border-border/70 bg-muted/30 inline-flex flex-wrap gap-0.5 rounded-full border p-1">
           {MODES.map((mode) => (
             <button
               key={mode.id}
               disabled={!mode.ready}
               title={mode.ready ? undefined : "Coming next"}
               className={cn(
-                "rounded px-2.5 py-1.5 text-xs font-medium transition-colors",
+                "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
                 mode.ready
-                  ? "bg-muted text-foreground"
+                  ? "bg-card text-foreground shadow-sm"
                   : "text-muted-foreground/40 cursor-not-allowed",
               )}
             >
@@ -122,43 +126,22 @@ export default function AtlasPage() {
           ))}
         </div>
 
-        <div className="relative">
-          <div className="border-border bg-muted/40 flex h-9 w-72 items-center gap-2 rounded-md border px-3">
-            <Search className="text-muted-foreground size-4" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search the map…"
-              className="placeholder:text-muted-foreground w-full bg-transparent text-sm outline-none"
-            />
-          </div>
-          {matches.length > 0 && (
-            <ul className="border-border bg-background absolute z-20 mt-1 w-72 overflow-hidden rounded-md border shadow-xl">
-              {matches.map((node: GraphNode) => (
-                <li key={node.key}>
-                  <button
-                    onClick={() => {
-                      setFocusKey(node.key);
-                      setQuery("");
-                    }}
-                    className="hover:bg-muted flex w-full flex-col items-start px-3 py-2 text-left"
-                  >
-                    <span className="text-xs font-medium">{node.name}</span>
-                    <span className="text-muted-foreground truncate text-[10px]">
-                      {node.kind}
-                      {node.path ? ` · ${node.path}` : ""}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <button
+          type="button"
+          onClick={() => setPaletteOpen(true)}
+          className="border-border bg-muted/40 text-muted-foreground hover:bg-muted flex h-9 w-64 items-center gap-2 rounded-full border px-4 text-sm transition-colors"
+        >
+          <Search className="size-4" />
+          <span>Search the map…</span>
+          <kbd className="border-border ml-auto rounded border px-1.5 text-xs">Ctrl K</kbd>
+        </button>
       </div>
 
       <div className="min-h-0 flex-1">
         {graph.isLoading ? (
-          <p className="text-muted-foreground text-sm">Loading the map…</p>
+          <div className="border-border/70 bg-card/60 text-muted-foreground mx-auto mt-16 flex w-fit items-center gap-2 rounded-full border px-4 py-2 text-sm backdrop-blur">
+            <MapIcon className="size-4 animate-pulse" /> Mapping the repository…
+          </div>
         ) : hasGraph ? (
           <ReactFlowProvider>
             <AtlasCanvas
@@ -179,8 +162,8 @@ export default function AtlasPage() {
       </div>
 
       <p className="text-muted-foreground mt-2 text-[10px]">
-        Zoom in to dive into a node, zoom out to surface. Call and import edges are resolved by name
-        and are approximate.
+        Zoom or press Enter to dive into a node, Esc to surface. Arrow keys hop between cards. Call
+        and import edges are resolved by name and are approximate.
       </p>
     </div>
   );
