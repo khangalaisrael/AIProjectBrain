@@ -1,7 +1,7 @@
 # Journey — where AI Project Brain stands, and what's next
 
-A handoff document. Everything below is true as of commit `7860a38`, working
-tree clean, `main` synced with `origin/main`.
+A handoff document. Everything below is true as of the Tier-1 work (CI + the
+first frontend tests) landing on `main`.
 
 ---
 
@@ -57,7 +57,10 @@ Every sidebar page is real. Nothing is a placeholder.
 ### Health
 
 - **103 backend tests pass.** `ruff` + `black` clean.
-- **Zero frontend tests. No CI.** (See §6.)
+- **37 frontend tests pass** (Vitest + Testing Library), covering `use-resizable`,
+  the `apiFetch` client, and the Atlas ancestor-chain walk.
+- **CI runs both suites on every push and pull request** —
+  [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 - 7 Alembic migrations, apply and roll back cleanly.
 
 ---
@@ -75,6 +78,7 @@ cd backend
 
 cd frontend
 npm run dev                   # http://localhost:3000
+npm test                      # watch mode; `npm run test:run` for one shot
 ```
 
 **Windows quirks on this machine**
@@ -133,15 +137,20 @@ Read these before trusting the graph or the replay.
 
 Ordered by what I'd actually pick up first.
 
-### Tier 1 — stops regressions
+### Tier 1 — stops regressions ✅ done
 
-- [ ] **CI.** Nothing runs on push. A GitHub Actions workflow doing
-      `pytest` + `ruff` + `black --check` for the backend and
-      `npm run build` + `lint` + `format:check` for the frontend would have
-      caught the dead-CSS-class bug and the `vars()`-on-slots bug immediately.
-- [ ] **Frontend tests.** There are none. Start with the pieces that hold
-      logic, not markup: `useResizable` (clamping, persistence),
-      `lib/api.ts` error handling, the Atlas ancestor-chain walk.
+- [x] **CI.** `.github/workflows/ci.yml` runs `ruff` + `black --check` + `pytest`
+      for the backend and `lint` + `format:check` + `test:run` + `build` for the
+      frontend, on every push and PR.
+- [x] **Frontend tests.** Vitest + jsdom. 37 tests over the pieces that hold
+      logic, not markup: `lib/use-resizable.ts`, `lib/api.ts`, and the Atlas
+      ancestor-chain walk (extracted to `lib/atlas-graph.ts` to make it testable).
+
+  **If you add backend tests, note:** CI must export a `TOKEN_ENCRYPTION_KEY`.
+  `Settings` defaults it to `""` and `crypto._cipher()` raises on an empty key,
+  so the `user` / `auth_headers` fixtures — which write an encrypted access
+  token — take down ~60 tests without it. Locally the gitignored `.env` hides
+  this. The workflow hardcodes a throwaway Fernet key; it protects nothing.
 
 ### Tier 2 — finish the spec
 
@@ -191,8 +200,12 @@ frontend/
   app/(app)/       one folder per sidebar page
   components/atlas/  the map: canvas, nodes, edges, layout, panels, flow replay
   components/chat/   docked RAG chat + markdown renderer
-  lib/               api client, hooks, zustand stores, useResizable
+  lib/               api client, hooks, zustand stores, use-resizable,
+                     atlas-graph (pure graph helpers), *.test.ts
 ```
+
+Tests live next to the code they cover (`lib/api.ts` → `lib/api.test.ts`) and are
+excluded from `tsconfig.json` so `next build` doesn't type-check them.
 
 **Patterns worth following.** Every generated feature (Overview, Learn,
 Thinking, Docs) uses the same shape: a service builds context from the indexed
