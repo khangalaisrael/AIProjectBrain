@@ -22,6 +22,22 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The reason a request failed, preferring FastAPI's `{"detail": "..."}` body.
+ *
+ * Validation errors put a list in `detail`, and a proxy may return HTML, so
+ * anything that isn't a plain string falls back to the status line.
+ */
+async function errorMessage(response: Response, path: string): Promise<string> {
+  const fallback = `Request to ${path} failed (${response.status})`;
+  try {
+    const body = await response.json();
+    return typeof body?.detail === "string" ? body.detail : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getToken();
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -34,7 +50,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   });
 
   if (!response.ok) {
-    throw new ApiError(response.status, `Request to ${path} failed (${response.status})`);
+    throw new ApiError(response.status, await errorMessage(response, path));
   }
   if (response.status === 204) {
     return undefined as T;
