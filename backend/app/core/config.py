@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expires_minutes: int = 60
 
+    # Fernet key used to encrypt third-party access tokens at rest. Generate with:
+    #   python -c "from cryptography.fernet import Fernet;
+    #              print(Fernet.generate_key().decode())"
+    token_encryption_key: str = ""
+
     # AI (OpenAI) — one key powers both chat and embeddings
     openai_api_key: str = ""
     llm_provider: str = "openai"

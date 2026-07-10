@@ -17,6 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.crypto import decrypt_token, encrypt_token
 from app.domain.enums import ImportStatus, Language
 from app.infrastructure.db.base import Base
 
@@ -38,12 +39,22 @@ class UserModel(TimestampMixin, Base):
     username: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
-    # GitHub OAuth access token. TODO(security): encrypt at rest before Phase 2.
-    access_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # The GitHub OAuth token is encrypted at rest; never read this column
+    # directly, use the `access_token` property below.
+    access_token_encrypted: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     repositories: Mapped[list[RepositoryModel]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+
+    @property
+    def access_token(self) -> str | None:
+        """The plaintext GitHub token, decrypted on access."""
+        return decrypt_token(self.access_token_encrypted)
+
+    @access_token.setter
+    def access_token(self, value: str | None) -> None:
+        self.access_token_encrypted = encrypt_token(value)
 
 
 class RepositoryModel(TimestampMixin, Base):
