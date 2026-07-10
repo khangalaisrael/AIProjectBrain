@@ -226,3 +226,28 @@ def test_stream_rejects_an_empty_question(client, auth_headers, repo, fake_chat)
         f"/api/v1/repositories/{repo.id}/chat/stream", json={"question": ""}, headers=auth_headers
     )
     assert response.status_code == 422
+
+
+def test_a_404_does_not_require_ai_credentials(client, auth_headers, monkeypatch):
+    """Resolving the chat dependency must not build an OpenAI client.
+
+    The service is a FastAPI dependency, so it is constructed before the route
+    can decide the repository doesn't exist. Eagerly building OpenAIChat there
+    turned every 404 into a 500 on any machine without an API key -- which is
+    every CI machine.
+    """
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    response = client.post(
+        "/api/v1/repositories/9999/chat", json={"question": "hi"}, headers=auth_headers
+    )
+    assert response.status_code == 404
+
+
+def test_a_404_on_the_stream_does_not_require_ai_credentials(client, auth_headers, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    response = client.post(
+        "/api/v1/repositories/9999/chat/stream", json={"question": "hi"}, headers=auth_headers
+    )
+    assert response.status_code == 404

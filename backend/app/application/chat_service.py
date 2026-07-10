@@ -51,15 +51,41 @@ class ChatChunk:
 
 
 class ChatService:
+    """RAG over a repository's indexed code.
+
+    The AI clients are built on first use, not in ``__init__``. Constructing
+    ``OpenAIChat`` demands an API key, and the service is now resolved as a
+    FastAPI dependency — which happens *before* the route can decide the
+    repository doesn't exist. A 404 must not require credentials.
+    """
+
     def __init__(
         self,
         embedder: OpenAIEmbedder | None = None,
         store: QdrantVectorStore | None = None,
         chat: OpenAIChat | None = None,
     ) -> None:
-        self._embedder = embedder or OpenAIEmbedder()
-        self._store = store or QdrantVectorStore()
-        self._chat = chat or OpenAIChat()
+        self._embedder_or_none = embedder
+        self._store_or_none = store
+        self._chat_or_none = chat
+
+    @property
+    def _embedder(self) -> OpenAIEmbedder:
+        if self._embedder_or_none is None:
+            self._embedder_or_none = OpenAIEmbedder()
+        return self._embedder_or_none
+
+    @property
+    def _store(self) -> QdrantVectorStore:
+        if self._store_or_none is None:
+            self._store_or_none = QdrantVectorStore()
+        return self._store_or_none
+
+    @property
+    def _chat(self) -> OpenAIChat:
+        if self._chat_or_none is None:
+            self._chat_or_none = OpenAIChat()
+        return self._chat_or_none
 
     def _retrieve(self, repository_id: int, question: str):
         """The RAG retrieval step, shared by the buffered and streamed answers."""
