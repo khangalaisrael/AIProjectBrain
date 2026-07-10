@@ -1,4 +1,4 @@
-import { type GraphNode } from "@/lib/api";
+import { type GraphEdge, type GraphEdgeKind, type GraphNode } from "@/lib/api";
 
 /**
  * The ancestors of `focusKey`, root first, excluding the focus node itself.
@@ -30,4 +30,27 @@ export function ancestorChain(
   }
 
   return chain.length ? chain : [rootKey];
+}
+
+/**
+ * The nodes that at least one edge of an emphasised kind touches.
+ *
+ * A focused Atlas mode (Dependency emphasises `imports`) fades everything this
+ * doesn't return, so a node only stays lit if it actually participates in the
+ * relationship being shown. Edges pointing outside `visible` are ignored — they
+ * belong to a scope that isn't on screen.
+ */
+export function nodesTouchedBy(
+  edges: readonly GraphEdge[],
+  kinds: ReadonlySet<GraphEdgeKind>,
+  visible: ReadonlySet<string>,
+): Set<string> {
+  const touched = new Set<string>();
+  for (const edge of edges) {
+    if (!kinds.has(edge.kind)) continue;
+    if (!visible.has(edge.source_key) || !visible.has(edge.target_key)) continue;
+    touched.add(edge.source_key);
+    touched.add(edge.target_key);
+  }
+  return touched;
 }

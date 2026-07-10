@@ -49,6 +49,10 @@ Every sidebar page is real. Nothing is a placeholder.
   call path*. Play/pause, step, 0.5×/1×/2×. The camera follows the active
   frame; the right panel syncs that step's source lines and an AI explanation
   of why it's called there.
+- **Dependency mode** — the same map with `imports` lit and everything else
+  faded, so you can see what a module actually depends on. Where a scope has no
+  imports at all (the repository root, whose halves talk over HTTP) the mode
+  stands down rather than greying out the map.
 - Built on a real knowledge graph: `repository → system → folder → file → class
   → function`, with `imports` / `calls` / `extends` / `implements` edges.
   Deeper edges **roll up** when you zoom out (a function→function call becomes
@@ -57,8 +61,8 @@ Every sidebar page is real. Nothing is a placeholder.
 ### Health
 
 - **103 backend tests pass.** `ruff` + `black` clean.
-- **37 frontend tests pass** (Vitest + Testing Library), covering `use-resizable`,
-  the `apiFetch` client, and the Atlas ancestor-chain walk.
+- **53 frontend tests pass** (Vitest + Testing Library), covering `use-resizable`,
+  the `apiFetch` client, the Atlas graph helpers, and the ELK layout functions.
 - **CI runs both suites on every push and pull request** —
   [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 - 7 Alembic migrations, apply and roll back cleanly.
@@ -126,7 +130,8 @@ Read these before trusting the graph or the replay.
    map at world zoom.
 4. **A repo imported before the Atlas existed has no graph** and shows the
    "no map yet" empty state. Re-index it to fix.
-5. **`/atlas` ships a ~443 kB bundle** because ELK's solver is bundled.
+5. **The Atlas still downloads ELK's ~440 kB solver**, just not as part of the
+   route bundle — it now loads on first layout. Deferred, not eliminated.
 6. **The API doc generator once claimed this project "has no HTTP API"** — it
    only saw function *names*. It now reads the source of route files. If you add
    a new doc type, remember the model can only reason about what you feed it.
@@ -154,10 +159,24 @@ Ordered by what I'd actually pick up first.
 
 ### Tier 2 — finish the spec
 
-- [ ] **Remaining Atlas modes**: Authentication, Dependency, Database, Event
-      Flow, Deployment. Each is *filtering and highlighting the same graph* —
-      far cheaper than Request Flow was. Suggested first: **Dependency**
-      (highlight only `imports` edges, fade the rest).
+- [x] **Dependency mode.** `AtlasCanvas` takes an `emphasisKinds` prop; the mode
+      lights `imports` and fades the rest. Roll-up preserves edge kind, so it
+      works at every zoom.
+
+- [ ] **The other four modes need graph data that does not exist yet.** An
+      earlier version of this doc claimed each mode was "just filtering and
+      highlighting the same graph." That was only true of Dependency. The graph
+      has exactly three edge kinds — `imports` (851), `calls` (854), `extends`
+      (57) — and node kinds `repository / system / folder / file / class /
+      function / external`. Nothing marks a route, an ORM model, an event
+      emitter, a deployment target, or an auth boundary.
+
+      So each remaining mode is a **`graph_builder` feature, not a frontend
+      one**: Authentication needs auth middleware/decorator detection; Database
+      needs ORM-model and query detection; Event Flow needs emitter/subscriber
+      edges; Deployment needs to parse compose/Dockerfiles. Once the data exists,
+      the frontend side really is one entry in the `EMPHASIS` map in
+      `app/(app)/atlas/page.tsx`.
 - [ ] **Journey Mode** — the atlas grows lesson by lesson, tied to the Learn
       course. Needs a mapping from lesson → graph nodes.
 - [ ] **Zoom levels L5 (execution steps) and L6 (source)** — L5 is essentially
@@ -167,7 +186,8 @@ Ordered by what I'd actually pick up first.
 ### Tier 3 — polish and product
 
 - [ ] **Stream chat responses** token-by-token; **persist chat history**.
-- [ ] **Lazy-load ELK** to cut the `/atlas` bundle.
+- [x] **Lazy-load ELK.** `/atlas` first load went 802 kB → 371 kB (route JS
+      444 kB → 12.4 kB). ELK now arrives in its own chunk on first layout.
 - [ ] **Highlight the full active path** in focus mode, not just direct
       neighbours (BFS already computes tiers; extend to a call chain).
 - [ ] **Re-index `octocat/Hello-World`** or drop it — it has no code, so it

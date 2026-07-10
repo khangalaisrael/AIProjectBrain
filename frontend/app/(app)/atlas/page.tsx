@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { Map as MapIcon, Search, Sparkles } from "lucide-react";
 
+import { type GraphEdgeKind } from "@/lib/api";
 import { useAuth, useGraph, useRepositories } from "@/lib/hooks";
 import { useCommandPaletteStore } from "@/lib/command-palette-store";
 import { PageHeader } from "@/components/layout/page-header";
@@ -19,7 +20,7 @@ const MODES = [
   { id: "architecture", label: "Architecture", ready: true },
   { id: "request", label: "Request Flow", ready: true },
   { id: "auth", label: "Authentication", ready: false },
-  { id: "dependency", label: "Dependency", ready: false },
+  { id: "dependency", label: "Dependency", ready: true },
   { id: "database", label: "Database", ready: false },
   { id: "deployment", label: "Deployment", ready: false },
   { id: "event", label: "Event Flow", ready: false },
@@ -28,6 +29,14 @@ const MODES = [
 type ModeId = (typeof MODES)[number]["id"];
 
 const DEEPEST_LEVEL = 4;
+
+/** Each focused mode is the same graph with one relationship brought forward. */
+const EMPHASIS: Partial<Record<ModeId, readonly GraphEdgeKind[]>> = {
+  dependency: ["imports"],
+};
+
+/** Modes that navigate the map rather than replay something through it. */
+const SEARCHABLE: readonly ModeId[] = ["architecture", "dependency"];
 
 export default function AtlasPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -132,7 +141,7 @@ export default function AtlasPage() {
         </div>
 
         {/* Search navigates the map; it has no meaning while replaying a request. */}
-        {mode === "architecture" && (
+        {SEARCHABLE.includes(mode) && (
           <button
             type="button"
             onClick={() => setPaletteOpen(true)}
@@ -156,11 +165,13 @@ export default function AtlasPage() {
           ) : (
             <ReactFlowProvider>
               <AtlasCanvas
+                key={mode}
                 repositoryId={repositoryId as number}
                 fullGraph={graph.data!}
                 rootKey={rootKey as string}
                 focusKey={focusKey}
                 onFocusHandled={() => setFocusKey(null)}
+                emphasisKinds={EMPHASIS[mode]}
               />
             </ReactFlowProvider>
           )
@@ -176,7 +187,9 @@ export default function AtlasPage() {
       <p className="text-muted-foreground mt-2 text-[10px]">
         {mode === "request"
           ? "Press play to watch the request travel its call path, or click a card to jump to that step. Call edges are resolved by name and are approximate."
-          : "Zoom or press Enter to dive into a node, Esc to surface. Arrow keys hop between cards. Call and import edges are resolved by name and are approximate."}
+          : mode === "dependency"
+            ? "Only import edges are lit; everything a module doesn't import is faded. Select a card to switch to focus mode. Import edges are resolved by name and are approximate — the graph under-reports rather than guesses."
+            : "Zoom or press Enter to dive into a node, Esc to surface. Arrow keys hop between cards. Call and import edges are resolved by name and are approximate."}
       </p>
     </div>
   );
