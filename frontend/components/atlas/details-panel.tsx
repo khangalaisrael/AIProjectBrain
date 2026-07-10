@@ -6,7 +6,10 @@ import { ArrowDownLeft, ArrowUpRight, Code2, Loader2, Sparkles, X } from "lucide
 
 import { type GraphEdge, type GraphNode } from "@/lib/api";
 import { useExplainFile, useFile } from "@/lib/hooks";
+import { PANEL } from "@/lib/panel-size-store";
+import { useResizable } from "@/lib/use-resizable";
 import { Button } from "@/components/ui/button";
+import { ResizeHandle } from "@/components/ui/resize-handle";
 import { CodeViewer } from "@/components/explorer/code-viewer";
 import { Markdown } from "@/components/chat/markdown";
 import { ICONS, TONES } from "@/components/atlas/atlas-node";
@@ -76,6 +79,14 @@ export function DetailsPanel({
   const explain = useExplainFile();
   const explainedFileName = node.path?.split("/").pop() ?? "this file";
 
+  const panel = useResizable({
+    id: PANEL.atlasDetails,
+    defaultWidth: 384,
+    min: 320,
+    max: 720,
+    edge: "left",
+  });
+
   // Relationships within the current scope, split by direction.
   const { outgoing, incoming } = useMemo(() => {
     const out: { node: GraphNode; kind: string }[] = [];
@@ -122,8 +133,16 @@ export function DetailsPanel({
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 24, opacity: 0 }}
       transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-      className="border-border/70 bg-background/95 rounded-card shadow-card-hover absolute top-4 right-4 z-10 flex max-h-[calc(100%-2rem)] w-96 flex-col border backdrop-blur"
+      style={{ width: panel.width }}
+      className="border-border/70 bg-background/95 rounded-card shadow-card-hover absolute top-4 right-4 z-10 flex max-h-[calc(100%-2rem)] max-w-[calc(100%-2rem)] flex-col border backdrop-blur"
     >
+      {/* Grab the panel's left edge to widen it over the map. */}
+      <ResizeHandle
+        {...panel.separatorProps}
+        isDragging={panel.isDragging}
+        className="absolute inset-y-0 -left-1 z-10"
+      />
+
       <div className="border-border flex items-start justify-between gap-2 border-b p-4">
         <div className="flex min-w-0 items-start gap-3">
           <span className="bg-muted/60 flex size-9 shrink-0 items-center justify-center rounded-lg">

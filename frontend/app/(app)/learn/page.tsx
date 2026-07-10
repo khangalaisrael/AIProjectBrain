@@ -12,9 +12,12 @@ import {
 } from "lucide-react";
 
 import { useAuth, useGenerateCourse, useLessons, useRepositories } from "@/lib/hooks";
+import { PANEL } from "@/lib/panel-size-store";
+import { useResizable } from "@/lib/use-resizable";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
+import { ResizeHandle } from "@/components/ui/resize-handle";
 import { SignInButton } from "@/components/auth/auth-controls";
 import { Markdown } from "@/components/chat/markdown";
 import { cn } from "@/lib/utils";
@@ -46,6 +49,7 @@ export default function LearnPage() {
 
   const lessons = useLessons(repositoryId);
   const generate = useGenerateCourse();
+  const nav = useResizable({ id: PANEL.learnNav, defaultWidth: 260, min: 180, max: 480 });
 
   if (!authLoading && !isAuthenticated) {
     return (
@@ -137,9 +141,12 @@ export default function LearnPage() {
           }
         />
       ) : (
-        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[260px_1fr]">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row lg:gap-0">
           {/* Lesson navigation */}
-          <nav className="border-border min-h-0 overflow-y-auto rounded-lg border p-2">
+          <nav
+            style={{ "--panel-w": `${nav.width}px` } as React.CSSProperties}
+            className="border-border min-h-0 w-full shrink-0 overflow-y-auto rounded-lg border p-2 lg:w-[var(--panel-w)]"
+          >
             <ol className="space-y-1">
               {data.map((lesson, i) => (
                 <li key={lesson.id}>
@@ -160,8 +167,14 @@ export default function LearnPage() {
             </ol>
           </nav>
 
+          <ResizeHandle
+            {...nav.separatorProps}
+            isDragging={nav.isDragging}
+            className="hidden lg:block"
+          />
+
           {/* Lesson content */}
-          <article className="border-border min-h-0 overflow-y-auto rounded-lg border">
+          <article className="border-border min-h-0 min-w-0 flex-1 overflow-y-auto rounded-lg border">
             {active && (
               <div className="mx-auto max-w-3xl px-6 py-6">
                 <div className="border-border mb-4 border-b pb-4">

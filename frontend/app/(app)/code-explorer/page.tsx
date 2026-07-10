@@ -4,9 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { FileCode2, Loader2, Sparkles } from "lucide-react";
 
 import { useAuth, useExplainFile, useFile, useFiles, useRepositories } from "@/lib/hooks";
+import { PANEL } from "@/lib/panel-size-store";
+import { useResizable } from "@/lib/use-resizable";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
+import { ResizeHandle } from "@/components/ui/resize-handle";
 import { SignInButton } from "@/components/auth/auth-controls";
 import { CodeViewer } from "@/components/explorer/code-viewer";
 import { Markdown } from "@/components/chat/markdown";
@@ -31,6 +34,15 @@ export default function CodeExplorerPage() {
   const { data: files, isLoading: filesLoading } = useFiles(repositoryId);
   const { data: file, isLoading: fileLoading } = useFile(repositoryId, fileId);
   const explain = useExplainFile();
+
+  const tree = useResizable({ id: PANEL.explorerTree, defaultWidth: 260, min: 180, max: 520 });
+  const aside = useResizable({
+    id: PANEL.explorerAside,
+    defaultWidth: 360,
+    min: 260,
+    max: 640,
+    edge: "left",
+  });
 
   // Reset selection + explanation when switching repository.
   useEffect(() => {
@@ -88,9 +100,12 @@ export default function CodeExplorerPage() {
         </select>
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[260px_1fr_360px]">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row lg:gap-0">
         {/* File tree */}
-        <div className="border-border min-h-0 overflow-y-auto rounded-lg border">
+        <div
+          style={{ "--panel-w": `${tree.width}px` } as React.CSSProperties}
+          className="border-border min-h-0 w-full shrink-0 overflow-y-auto rounded-lg border lg:w-[var(--panel-w)]"
+        >
           <div className="text-muted-foreground border-border bg-background sticky top-0 border-b px-3 py-2 text-xs font-medium">
             Files {files ? `(${files.length})` : ""}
           </div>
@@ -122,8 +137,14 @@ export default function CodeExplorerPage() {
           )}
         </div>
 
+        <ResizeHandle
+          {...tree.separatorProps}
+          isDragging={tree.isDragging}
+          className="hidden lg:block"
+        />
+
         {/* Code viewer */}
-        <div className="border-border flex min-h-0 flex-col overflow-hidden rounded-lg border">
+        <div className="border-border flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border">
           {file ? (
             <>
               <div className="border-border bg-background text-muted-foreground border-b px-3 py-2 font-mono text-xs">
@@ -140,8 +161,17 @@ export default function CodeExplorerPage() {
           )}
         </div>
 
+        <ResizeHandle
+          {...aside.separatorProps}
+          isDragging={aside.isDragging}
+          className="hidden lg:block"
+        />
+
         {/* Functions + AI explanation */}
-        <div className="border-border flex min-h-0 flex-col overflow-hidden rounded-lg border">
+        <div
+          style={{ "--panel-w": `${aside.width}px` } as React.CSSProperties}
+          className="border-border flex min-h-0 w-full shrink-0 flex-col overflow-hidden rounded-lg border lg:w-[var(--panel-w)]"
+        >
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
             {file && file.functions.length > 0 && (
               <div className="mb-4">

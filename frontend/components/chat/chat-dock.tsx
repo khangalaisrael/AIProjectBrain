@@ -16,9 +16,16 @@ import {
 
 import { type Citation, askRepository } from "@/lib/api";
 import { useAuth, useRepositories } from "@/lib/hooks";
+import { PANEL } from "@/lib/panel-size-store";
+import { useResizable } from "@/lib/use-resizable";
 import { Button } from "@/components/ui/button";
+import { ResizeHandle } from "@/components/ui/resize-handle";
 import { Markdown } from "@/components/chat/markdown";
 import { cn } from "@/lib/utils";
+
+/** Preset widths the maximize button toggles between. */
+const CHAT_DEFAULT_WIDTH = 448;
+const CHAT_WIDE_WIDTH = 768;
 
 interface RepoRef {
   fullName: string;
@@ -41,7 +48,15 @@ export function ChatDock() {
   const { data: repositories } = useRepositories(isAuthenticated);
 
   const [open, setOpen] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const panel = useResizable({
+    id: PANEL.chatDock,
+    defaultWidth: CHAT_DEFAULT_WIDTH,
+    min: 360,
+    max: 1100,
+    edge: "left",
+  });
+  // The maximize button is a shortcut for what dragging the edge already does.
+  const expanded = panel.width > (CHAT_DEFAULT_WIDTH + CHAT_WIDE_WIDTH) / 2;
   const [repositoryId, setRepositoryId] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -112,11 +127,16 @@ export function ChatDock() {
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "tween", duration: 0.25 }}
-            className={cn(
-              "border-border bg-background fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l shadow-xl transition-[max-width] duration-200",
-              expanded ? "max-w-3xl" : "max-w-md",
-            )}
+            style={{ width: panel.width }}
+            className="border-border bg-background fixed inset-y-0 right-0 z-50 flex max-w-full flex-col border-l shadow-xl"
           >
+            {/* Grab the panel's left edge to widen the conversation. */}
+            <ResizeHandle
+              {...panel.separatorProps}
+              isDragging={panel.isDragging}
+              className="absolute inset-y-0 -left-1 z-10"
+            />
+
             {/* Header */}
             <div className="border-border flex h-14 items-center justify-between border-b px-4">
               <div className="flex items-center gap-2">
@@ -127,7 +147,7 @@ export function ChatDock() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => setExpanded((v) => !v)}
+                  onClick={() => panel.setWidth(expanded ? CHAT_DEFAULT_WIDTH : CHAT_WIDE_WIDTH)}
                   aria-label={expanded ? "Shrink panel" : "Expand panel"}
                 >
                   {expanded ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
