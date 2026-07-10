@@ -38,7 +38,7 @@ Every sidebar page is real. Nothing is a placeholder.
 | **Atlas** | Zoomable knowledge-graph map (see below) |
 | **Developer Thinking** | Inferred engineering decisions with reason / trade-offs / alternatives |
 | **Documentation** | Generated README / API / Architecture / Folders, with copy + `.md` export |
-| **Chat** | Docked RAG chat over the indexed code, with clickable citations |
+| **Chat** | Docked RAG chat over the indexed code, streamed token by token, with clickable citations and a thread that survives reload |
 
 ### The Atlas (the centrepiece)
 
@@ -53,6 +53,8 @@ Every sidebar page is real. Nothing is a placeholder.
   faded, so you can see what a module actually depends on. Where a scope has no
   imports at all (the repository root, whose halves talk over HTTP) the mode
   stands down rather than greying out the map.
+- **Database mode** — lights ORM model classes and every folder that contains
+  one. Needs a re-index for repositories imported before it existed.
 - Built on a real knowledge graph: `repository → system → folder → file → class
   → function`, with `imports` / `calls` / `extends` / `implements` edges.
   Deeper edges **roll up** when you zoom out (a function→function call becomes
@@ -60,9 +62,10 @@ Every sidebar page is real. Nothing is a placeholder.
 
 ### Health
 
-- **103 backend tests pass.** `ruff` + `black` clean.
-- **53 frontend tests pass** (Vitest + Testing Library), covering `use-resizable`,
-  the `apiFetch` client, the Atlas graph helpers, and the ELK layout functions.
+- **125 backend tests pass.** `ruff` + `black` clean.
+- **88 frontend tests pass** (Vitest + Testing Library), covering `use-resizable`,
+  the `apiFetch` client and its SSE stream, the Atlas graph helpers, and the ELK
+  layout functions.
 - **CI runs both suites on every push and pull request** —
   [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 - 7 Alembic migrations, apply and roll back cleanly.
@@ -75,6 +78,9 @@ Docker Desktop must be running first, or **indexing fails at the embedding step*
 
 ```bash
 docker compose up -d          # Postgres, Redis, Qdrant
+
+# ...or run the whole stack in containers, with a real Celery worker:
+docker compose --profile apps up -d --build
 
 cd backend
 .venv/Scripts/python.exe -m alembic upgrade head
@@ -163,20 +169,29 @@ Ordered by what I'd actually pick up first.
       lights `imports` and fades the rest. Roll-up preserves edge kind, so it
       works at every zoom.
 
-- [ ] **The other four modes need graph data that does not exist yet.** An
+- [x] **Database mode.** The first mode that needed new *graph data*.
+      `graph_builder` flags ORM model classes with `meta.has_models` and
+      propagates the flag to every ancestor, so the database layer survives
+      zooming out. `AtlasCanvas` gained `emphasisMeta` for modes about what a
+      node *is* rather than how it connects.
+
+- [ ] **The last three modes still need graph data that does not exist.** An
       earlier version of this doc claimed each mode was "just filtering and
       highlighting the same graph." That was only true of Dependency. The graph
-      has exactly three edge kinds — `imports` (851), `calls` (854), `extends`
-      (57) — and node kinds `repository / system / folder / file / class /
-      function / external`. Nothing marks a route, an ORM model, an event
-      emitter, a deployment target, or an auth boundary.
+      has exactly three edge kinds — `imports`, `calls`, `extends` — and node
+      kinds `repository / system / folder / file / class / function / external`.
+      Nothing marks a route, an event emitter, a deployment target, or an auth
+      boundary.
 
-      So each remaining mode is a **`graph_builder` feature, not a frontend
-      one**: Authentication needs auth middleware/decorator detection; Database
-      needs ORM-model and query detection; Event Flow needs emitter/subscriber
-      edges; Deployment needs to parse compose/Dockerfiles. Once the data exists,
-      the frontend side really is one entry in the `EMPHASIS` map in
-      `app/(app)/atlas/page.tsx`.
+      So each remaining mode is a **`graph_builder` feature first**:
+      Authentication needs auth middleware/decorator detection; Event Flow needs
+      emitter/subscriber edges; Deployment needs to parse compose/Dockerfiles.
+      Once the data exists, the frontend side really is one entry in `EMPHASIS`
+      or `EMPHASIS_META` in `app/(app)/atlas/page.tsx`. Follow the Database
+      mode: detect precisely, flag the node, propagate to ancestors.
+
+      **Anything already indexed predates the flag** and shows the mode's
+      stand-down notice until it is re-indexed.
 - [ ] **Journey Mode** — the atlas grows lesson by lesson, tied to the Learn
       course. Needs a mapping from lesson → graph nodes.
 - [ ] **Zoom levels L5 (execution steps) and L6 (source)** — L5 is essentially
@@ -185,21 +200,38 @@ Ordered by what I'd actually pick up first.
 
 ### Tier 3 — polish and product
 
-- [ ] **Stream chat responses** token-by-token; **persist chat history**.
+- [x] **Streamed chat + persisted history.** `POST /chat/stream` serves the
+      answer as server-sent events (tokens first, citations last); a
+      `chat_messages` table keyed by *(repository, user)* keeps the thread. The
+      question is stored before the first token, so a stream that dies mid-answer
+      still leaves the thread coherent. SSE framing lives in `lib/sse.ts` —
+      `fetch` splits bytes wherever it likes.
 - [x] **Lazy-load ELK.** `/atlas` first load went 802 kB → 371 kB (route JS
       444 kB → 12.4 kB). ELK now arrives in its own chunk on first layout.
-- [ ] **Highlight the full active path** in focus mode, not just direct
-      neighbours (BFS already computes tiers; extend to a call chain).
+- [x] **Focus mode lights the whole chain**, following edge direction: what the
+      selection reaches downstream plus what reaches it upstream. It lights
+      *fewer* nodes than the old two-hop undirected walk, because dropping
+      siblings beats reaching further.
 - [ ] **Re-index `octocat/Hello-World`** or drop it — it has no code, so it
       produces an empty graph and an empty course.
 
-### Tier 4 — production readiness (nothing exists yet)
+### Tier 4 — production readiness
+
+- [x] **Dockerfiles + a real Celery worker.** `docker compose up -d` still
+      starts only the datastores; `docker compose --profile apps up -d --build`
+      brings up the whole stack with a Redis-backed worker.
+
+      This uncovered a bug eager mode was hiding: nothing imported
+      `app.infrastructure.tasks` except `repository_service`, lazily, inside the
+      web process. **A worker started the documented way registered zero tasks**
+      and would have answered `index_repository` with `NotRegistered`. Celery's
+      `include=` fixes it; a test asserts a bare worker can see the task.
 
 - [ ] Rate limiting, audit logs, RBAC — all named in the SRS, none implemented.
-- [ ] Dockerfiles for the apps themselves (compose only runs the datastores).
-- [ ] A real Celery worker + Redis in the deployed path
-      (`CELERY_TASK_ALWAYS_EAGER` is a dev shortcut).
+      These are security surfaces; they want a spec, not a guess.
 - [ ] Monitoring / Sentry (`SENTRY_DSN` is wired in config but unused).
+- [ ] The compose `apps` profile is a *deployable shape*, not a deployment: no
+      TLS, no secrets manager, no healthcheck on the app containers.
 
 ---
 
