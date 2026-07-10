@@ -298,6 +298,8 @@ export interface GraphNode {
     end_line?: number;
     signature?: string | null;
     bucket?: string;
+    /** Set on an ORM model class and on every ancestor that contains one. */
+    has_models?: boolean;
   };
 }
 

@@ -180,3 +180,83 @@ def test_python_inheritance_edge():
         class_key("pkg/child.py", "Child", 1),
         class_key("pkg/base.py", "Base", 2),
     ) in _edge_set(edges, EdgeKind.EXTENDS)
+
+
+# ---- ORM model detection (Database mode) ----
+
+ORM_MODELS = """
+from sqlalchemy.orm import Mapped, mapped_column
+from app.db.base import Base
+
+class UserModel(TimestampMixin, Base):
+    pass
+
+class Helper:
+    pass
+"""
+
+PYDANTIC_SCHEMAS = """
+from pydantic import BaseModel
+
+class UserOut(BaseModel):
+    pass
+"""
+
+LOOKALIKE_BASE = """
+from app.core.thing import Base
+
+class NotAModel(Base):
+    pass
+"""
+
+
+def _build_python(files: dict[str, str]):
+    parsed = {p: parse_file(src, Language.PYTHON) for p, src in files.items()}
+    nodes, _ = GraphBuilder("acme/app").build(parsed)
+    return {n["key"]: n for n in nodes}
+
+
+def _has_models(node) -> bool:
+    return node["meta"].get("has_models") is True
+
+
+def test_a_sqlalchemy_model_is_flagged():
+    nodes = _build_python({"backend/app/models.py": ORM_MODELS})
+    model = next(n for n in nodes.values() if n["name"] == "UserModel")
+    assert _has_models(model)
+
+
+def test_a_plain_class_beside_a_model_is_not_flagged():
+    nodes = _build_python({"backend/app/models.py": ORM_MODELS})
+    helper = next(n for n in nodes.values() if n["name"] == "Helper")
+    assert not _has_models(helper)
+
+
+def test_a_pydantic_schema_is_not_a_model():
+    """BaseModel validates; it does not persist."""
+    nodes = _build_python({"backend/app/schemas.py": PYDANTIC_SCHEMAS})
+    schema = next(n for n in nodes.values() if n["name"] == "UserOut")
+    assert not _has_models(schema)
+
+
+def test_a_base_class_without_an_orm_import_is_not_a_model():
+    """`Base` is a common name; the ORM import is what makes it a model."""
+    nodes = _build_python({"backend/app/thing.py": LOOKALIKE_BASE})
+    klass = next(n for n in nodes.values() if n["name"] == "NotAModel")
+    assert not _has_models(klass)
+
+
+def test_the_flag_reaches_every_ancestor():
+    nodes = _build_python({"backend/app/models.py": ORM_MODELS})
+
+    assert _has_models(nodes[file_key("backend/app/models.py")])
+    assert _has_models(nodes[folder_key("backend/app")])
+    assert _has_models(nodes[system_key("backend")])
+
+
+def test_a_branch_with_no_models_stays_unflagged():
+    nodes = _build_python(
+        {"backend/app/models.py": ORM_MODELS, "frontend/ui/page.py": PYDANTIC_SCHEMAS}
+    )
+    assert _has_models(nodes[system_key("backend")])
+    assert not _has_models(nodes[file_key("frontend/ui/page.py")])

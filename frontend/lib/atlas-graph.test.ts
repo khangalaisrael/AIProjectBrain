@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { type GraphEdge, type GraphEdgeKind, type GraphNode } from "@/lib/api";
-import { ancestorChain, callChain, nodesTouchedBy } from "@/lib/atlas-graph";
+import { ancestorChain, callChain, nodesTouchedBy, nodesWithMetaFlag } from "@/lib/atlas-graph";
 
 function node(key: string, parent_key: string | null): GraphNode {
   return { key, kind: "function", level: 4, name: key, path: null, parent_key, meta: {} };
@@ -176,5 +176,42 @@ describe("callChain", () => {
   it("leaves an unconnected node off the chain entirely", () => {
     const d = callChain([edge("a", "b", "calls")], "a", ALL("a", "b", "lonely"));
     expect(d.has("lonely")).toBe(false);
+  });
+});
+
+describe("nodesWithMetaFlag", () => {
+  function flagged(key: string, has_models?: boolean): GraphNode {
+    return {
+      key,
+      kind: "class",
+      level: 3,
+      name: key,
+      path: null,
+      parent_key: null,
+      meta: has_models === undefined ? {} : { has_models },
+    };
+  }
+
+  it("returns the keys of nodes carrying the flag", () => {
+    const set = nodesWithMetaFlag([flagged("a", true), flagged("b")], "has_models");
+    expect([...set]).toEqual(["a"]);
+  });
+
+  it("ignores a flag that is explicitly false", () => {
+    expect(nodesWithMetaFlag([flagged("a", false)], "has_models").size).toBe(0);
+  });
+
+  it("returns nothing when no node carries the flag", () => {
+    // A repository indexed before the flag existed: the mode must stand down.
+    expect(nodesWithMetaFlag([flagged("a"), flagged("b")], "has_models").size).toBe(0);
+  });
+
+  it("returns nothing for an empty scope", () => {
+    expect(nodesWithMetaFlag([], "has_models").size).toBe(0);
+  });
+
+  it("keeps every flagged node", () => {
+    const set = nodesWithMetaFlag([flagged("a", true), flagged("b", true)], "has_models");
+    expect(set.size).toBe(2);
   });
 });

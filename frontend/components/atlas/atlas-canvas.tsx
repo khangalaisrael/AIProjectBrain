@@ -17,7 +17,7 @@ import { ChevronRight, Loader2 } from "lucide-react";
 import "@xyflow/react/dist/base.css";
 
 import { type Graph, type GraphEdge, type GraphEdgeKind, type GraphNode } from "@/lib/api";
-import { ancestorChain, callChain, nodesTouchedBy } from "@/lib/atlas-graph";
+import { ancestorChain, callChain, nodesTouchedBy, nodesWithMetaFlag } from "@/lib/atlas-graph";
 import { useGraphChildren } from "@/lib/hooks";
 import { AtlasNode, ICONS, type AtlasNodeData } from "@/components/atlas/atlas-node";
 import { AtlasEdge, type AtlasEdgeData, type AtlasEdgeState } from "@/components/atlas/atlas-edge";
@@ -62,6 +62,11 @@ interface AtlasCanvasProps {
    * view. A selection still wins — focus mode takes over the dimming.
    */
   emphasisKinds?: readonly GraphEdgeKind[];
+  /**
+   * A `meta` flag this mode is about, for modes that care what a node *is*
+   * rather than how it connects. Database mode passes `"has_models"`.
+   */
+  emphasisMeta?: keyof GraphNode["meta"];
 }
 
 export function AtlasCanvas({
@@ -71,6 +76,7 @@ export function AtlasCanvas({
   focusKey,
   onFocusHandled,
   emphasisKinds,
+  emphasisMeta,
 }: AtlasCanvasProps) {
   const { setCenter, fitView, getViewport, screenToFlowPosition } = useReactFlow();
 
@@ -319,20 +325,21 @@ export function AtlasCanvas({
     [emphasisKinds],
   );
 
-  /** Nodes the emphasised edges touch — the only ones this mode leaves lit. */
+  /** The only nodes this mode leaves lit: on an emphasised edge, or flagged. */
   const emphasised = useMemo(() => {
+    if (emphasisMeta) return nodesWithMetaFlag(positioned, emphasisMeta);
     if (!emphasis) return null;
     const visible = new Set(positioned.map((n) => n.key));
     return nodesTouchedBy(children?.edges ?? [], emphasis, visible);
-  }, [emphasis, children?.edges, positioned]);
+  }, [emphasis, emphasisMeta, children?.edges, positioned]);
 
   /**
-   * Some scopes have no edges of the emphasised kind at all — the repository
-   * root has no edges whatsoever, because backend and frontend talk over HTTP
-   * rather than importing each other. Dimming everything there would just grey
-   * out the map, so the mode stands down and says so instead.
+   * A scope can hold nothing the mode cares about: the repository root has no
+   * edges at all (backend and frontend talk over HTTP, not imports), and most
+   * folders contain no ORM models. Dimming everything there would just grey out
+   * the map, so the mode stands down and says so instead.
    */
-  const emphasisEmpty = emphasis !== null && emphasised?.size === 0;
+  const emphasisEmpty = emphasised !== null && emphasised.size === 0;
   const emphasisActive = emphasised !== null && !emphasisEmpty;
 
   /** A selection means focus mode, which owns the dimming. Otherwise the mode does. */
@@ -381,7 +388,14 @@ export function AtlasCanvas({
         let state: AtlasEdgeState = "normal";
         if (id === hoveredEdgeId) {
           state = "active";
-        } else if (emphasisActive && !emphasis!.has(e.kind)) {
+        } else if (
+          emphasisActive &&
+          // Edge-kind modes dim the wrong kind; meta modes dim anything that
+          // doesn't run between two lit nodes.
+          (emphasis
+            ? !emphasis.has(e.kind)
+            : !emphasised!.has(e.source_key) || !emphasised!.has(e.target_key))
+        ) {
           state = "dim";
         } else if (selected) {
           if (e.source_key === selected.key || e.target_key === selected.key) {
@@ -401,7 +415,16 @@ export function AtlasCanvas({
           data: { kind: e.kind, weight: e.weight, state } satisfies AtlasEdgeData,
         };
       });
-  }, [children?.edges, positioned, selected, hoveredEdgeId, onPath, emphasis, emphasisActive]);
+  }, [
+    children?.edges,
+    positioned,
+    selected,
+    hoveredEdgeId,
+    onPath,
+    emphasis,
+    emphasised,
+    emphasisActive,
+  ]);
 
   const breadcrumb = stack.map((key) => byKey.get(key)).filter(Boolean) as GraphNode[];
   const settling = isLoading || laidOutFor !== scope;
@@ -446,7 +469,9 @@ export function AtlasCanvas({
 
       {emphasisEmpty && !settling && positioned.length > 0 && (
         <p className="border-border/70 bg-card/80 text-muted-foreground absolute top-4 right-4 z-10 max-w-xs rounded-full border px-3 py-1.5 text-[11px] backdrop-blur">
-          Nothing here imports anything else. Dive in to see dependencies.
+          {emphasisMeta === "has_models"
+            ? "No database models live here. Dive in to find them."
+            : "Nothing here imports anything else. Dive in to see dependencies."}
         </p>
       )}
 

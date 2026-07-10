@@ -103,3 +103,21 @@ export function nodesTouchedBy(
   }
   return touched;
 }
+
+/**
+ * The nodes carrying a `meta` flag set by the graph builder.
+ *
+ * Some modes are about *what a node is* rather than how it connects. Database
+ * mode lights `has_models`, which the builder propagates from each ORM model
+ * class up to its file, folders and system — so the flag survives zooming out.
+ */
+export function nodesWithMetaFlag(
+  nodes: readonly GraphNode[],
+  flag: keyof GraphNode["meta"],
+): Set<string> {
+  const flagged = new Set<string>();
+  for (const node of nodes) {
+    if (node.meta[flag]) flagged.add(node.key);
+  }
+  return flagged;
+}
