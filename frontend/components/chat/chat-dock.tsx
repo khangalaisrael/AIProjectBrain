@@ -10,11 +10,12 @@ import {
   MessageSquare,
   Minimize2,
   Send,
+  Trash2,
   User,
   X,
 } from "lucide-react";
 
-import { type Citation, askRepository } from "@/lib/api";
+import { type Citation, clearChatMessages, getChatMessages, streamChat } from "@/lib/api";
 import { useAuth, useRepositories } from "@/lib/hooks";
 import { PANEL } from "@/lib/panel-size-store";
 import { useResizable } from "@/lib/use-resizable";
@@ -78,7 +79,48 @@ export function ChatDock() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, pending]);
 
+  // The thread is stored server-side, so reopening the dock resumes it.
+  useEffect(() => {
+    if (!isAuthenticated || repositoryId === null) return;
+    let cancelled = false;
+
+    getChatMessages(repositoryId)
+      .then((stored) => {
+        if (cancelled) return;
+        const repo = readyRepos.find((r) => r.id === repositoryId);
+        const repoRef = repo
+          ? { fullName: repo.full_name, branch: repo.default_branch }
+          : undefined;
+        setMessages(
+          stored.map((m) => ({
+            role: m.role,
+            content: m.content,
+            citations: m.citations,
+            repo: m.role === "assistant" ? repoRef : undefined,
+          })),
+        );
+      })
+      .catch(() => {
+        // An unreachable history is not worth an error bubble; start empty.
+        if (!cancelled) setMessages([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, repositoryId, readyRepos]);
+
   if (!isAuthenticated) return null;
+
+  async function clearThread() {
+    if (repositoryId === null || pending) return;
+    setMessages([]);
+    try {
+      await clearChatMessages(repositoryId);
+    } catch {
+      // The thread is already gone from view; a failed delete resurfaces on reload.
+    }
+  }
 
   async function send() {
     const question = input.trim();
@@ -89,20 +131,45 @@ export function ChatDock() {
       ? { fullName: repo.full_name, branch: repo.default_branch }
       : undefined;
 
-    setMessages((m) => [...m, { role: "user", content: question }]);
+    setMessages((m) => [
+      ...m,
+      { role: "user", content: question },
+      // The assistant bubble is created empty and filled by the stream.
+      { role: "assistant", content: "", repo: repoRef },
+    ]);
     setInput("");
     setPending(true);
+
+    /** Rewrite the trailing assistant message as tokens arrive. */
+    const updateAnswer = (apply: (current: Message) => Message) =>
+      setMessages((m) => [...m.slice(0, -1), apply(m[m.length - 1])]);
+
     try {
-      const res = await askRepository(repositoryId, question);
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", content: res.answer, citations: res.citations, repo: repoRef },
-      ]);
+      let streamed = false;
+      for await (const event of streamChat(repositoryId, question)) {
+        if (event.type === "token") {
+          streamed = true;
+          updateAnswer((current) => ({ ...current, content: current.content + event.text }));
+        } else if (event.type === "citations") {
+          updateAnswer((current) => ({ ...current, citations: event.citations }));
+        } else if (event.type === "error") {
+          updateAnswer((current) => ({
+            ...current,
+            content: current.content || "Something went wrong. Please try again.",
+          }));
+        }
+      }
+      if (!streamed) {
+        updateAnswer((current) => ({
+          ...current,
+          content: current.content || "The answer came back empty. Please try again.",
+        }));
+      }
     } catch {
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", content: "Something went wrong. Please try again." },
-      ]);
+      updateAnswer((current) => ({
+        ...current,
+        content: current.content || "Something went wrong. Please try again.",
+      }));
     } finally {
       setPending(false);
     }
@@ -144,6 +211,15 @@ export function ChatDock() {
                 <span className="text-sm font-semibold">Ask the codebase</span>
               </div>
               <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => void clearThread()}
+                  disabled={pending || messages.length === 0}
+                  aria-label="Clear conversation"
+                >
+                  <Trash2 className="size-4" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -202,7 +278,8 @@ export function ChatDock() {
               {messages.map((m, i) => (
                 <MessageBubble key={i} message={m} />
               ))}
-              {pending && (
+              {/* Only until the first token lands — after that the answer is its own progress. */}
+              {pending && !messages[messages.length - 1]?.content && (
                 <div className="text-muted-foreground flex items-center gap-2 text-sm">
                   <Loader2 className="size-4 animate-spin" /> Thinking…
                 </div>

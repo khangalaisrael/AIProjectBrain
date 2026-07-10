@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 from app.core.config import get_settings
@@ -31,6 +32,24 @@ class ChatAnswer:
     citations: list[Citation]
 
 
+_NO_INDEX_ANSWER = (
+    "I couldn't find any indexed code for this repository yet. "
+    "Make sure it has finished indexing, then try again."
+)
+
+
+@dataclass(slots=True)
+class ChatChunk:
+    """One piece of a streamed answer.
+
+    Exactly one of ``text`` or ``citations`` is set. Citations arrive last,
+    because they describe the whole answer rather than any one token.
+    """
+
+    text: str | None = None
+    citations: list[Citation] | None = None
+
+
 class ChatService:
     def __init__(
         self,
@@ -42,25 +61,39 @@ class ChatService:
         self._store = store or QdrantVectorStore()
         self._chat = chat or OpenAIChat()
 
-    def answer(self, repository_id: int, question: str) -> ChatAnswer:
+    def _retrieve(self, repository_id: int, question: str):
+        """The RAG retrieval step, shared by the buffered and streamed answers."""
         settings = get_settings()
         query_vector = self._embedder.embed_one(question)
-        hits = self._store.search(query_vector, repository_id, settings.rag_top_k)
+        return self._store.search(query_vector, repository_id, settings.rag_top_k)
 
+    def answer(self, repository_id: int, question: str) -> ChatAnswer:
+        hits = self._retrieve(repository_id, question)
         if not hits:
-            return ChatAnswer(
-                answer=(
-                    "I couldn't find any indexed code for this repository yet. "
-                    "Make sure it has finished indexing, then try again."
-                ),
-                citations=[],
-            )
+            return ChatAnswer(answer=_NO_INDEX_ANSWER, citations=[])
 
-        context = _build_context(hits)
-        user_prompt = f"Question: {question}\n\nContext:\n{context}"
+        user_prompt = f"Question: {question}\n\nContext:\n{_build_context(hits)}"
         answer = self._chat.complete(_SYSTEM_PROMPT, user_prompt)
 
         return ChatAnswer(answer=answer, citations=_citations(hits))
+
+    def answer_stream(self, repository_id: int, question: str) -> Iterator[ChatChunk]:
+        """The same answer, delivered token by token, citations last.
+
+        Retrieval happens before the first token, so an unindexed repository
+        fails fast rather than opening an empty stream.
+        """
+        hits = self._retrieve(repository_id, question)
+        if not hits:
+            yield ChatChunk(text=_NO_INDEX_ANSWER)
+            yield ChatChunk(citations=[])
+            return
+
+        user_prompt = f"Question: {question}\n\nContext:\n{_build_context(hits)}"
+        for delta in self._chat.stream(_SYSTEM_PROMPT, user_prompt):
+            yield ChatChunk(text=delta)
+
+        yield ChatChunk(citations=_citations(hits))
 
 
 def _build_context(hits) -> str:

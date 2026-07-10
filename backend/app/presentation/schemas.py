@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.enums import ImportStatus
@@ -69,6 +71,18 @@ class CitationOut(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     citations: list[CitationOut]
+
+
+class ChatMessageOut(BaseModel):
+    """One stored turn of a repository conversation."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    role: str
+    content: str
+    citations: list[CitationOut] = []
+    created_at: datetime
 
 
 class FileTreeItem(BaseModel):

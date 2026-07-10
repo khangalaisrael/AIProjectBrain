@@ -127,10 +127,10 @@ def _import_repo(client, headers) -> int:
     return resp.json()["id"]
 
 
-def test_chat_returns_answer_and_citations(
-    client, auth_headers, mock_github, enqueued, monkeypatch
-):
+def test_chat_returns_answer_and_citations(client, auth_headers, mock_github, enqueued):
     from app.application.chat_service import ChatAnswer, Citation
+    from app.main import app
+    from app.presentation.dependencies import get_chat_service
 
     repo_id = _import_repo(client, auth_headers)
 
@@ -142,15 +142,17 @@ def test_chat_returns_answer_and_citations(
                 citations=[Citation("app/api.py", "handle", 1, 9)],
             )
 
-    monkeypatch.setattr(
-        "app.presentation.api.v1.repositories.ChatService", lambda: FakeChatService()
-    )
+    # The route resolves the service through a dependency, so override that.
+    app.dependency_overrides[get_chat_service] = lambda: FakeChatService()
+    try:
+        response = client.post(
+            f"/api/v1/repositories/{repo_id}/chat",
+            headers=auth_headers,
+            json={"question": "What does the API do?"},
+        )
+    finally:
+        app.dependency_overrides.pop(get_chat_service, None)
 
-    response = client.post(
-        f"/api/v1/repositories/{repo_id}/chat",
-        headers=auth_headers,
-        json={"question": "What does the API do?"},
-    )
     assert response.status_code == 200
     body = response.json()
     assert body["answer"] == "It handles requests."

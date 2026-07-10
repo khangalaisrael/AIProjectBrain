@@ -224,3 +224,24 @@ class DecisionModel(TimestampMixin, Base):
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     tradeoffs: Mapped[str] = mapped_column(Text, default="")
     alternatives: Mapped[str] = mapped_column(Text, default="")
+
+
+class ChatMessageModel(TimestampMixin, Base):
+    """One turn of a repository chat, kept so the thread survives a reload."""
+
+    __tablename__ = "chat_messages"
+    __table_args__ = (Index("ix_chat_messages_repo_user_id", "repository_id", "user_id", "id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    repository_id: Mapped[int] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    # Threads are per user as well as per repository: two people asking about the
+    # same repo do not share a conversation.
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    # Only assistant turns carry citations; a user turn stores an empty list.
+    citations: Mapped[list] = mapped_column(JSON, default=list)

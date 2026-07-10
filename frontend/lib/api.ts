@@ -6,6 +6,7 @@
  */
 
 import { getToken } from "@/lib/auth-store";
+import { readSseStream } from "@/lib/sse";
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
 
@@ -129,6 +130,61 @@ export const askRepository = (repositoryId: number, question: string) =>
     method: "POST",
     body: JSON.stringify({ question }),
   });
+
+export interface ChatMessage {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  citations: Citation[];
+  created_at: string;
+}
+
+export const getChatMessages = (repositoryId: number) =>
+  apiFetch<ChatMessage[]>(`/repositories/${repositoryId}/chat/messages`);
+
+export const clearChatMessages = (repositoryId: number) =>
+  apiFetch<void>(`/repositories/${repositoryId}/chat/messages`, { method: "DELETE" });
+
+/** One event from the streamed answer. Citations arrive after the last token. */
+export type ChatStreamEvent =
+  | { type: "token"; text: string }
+  | { type: "citations"; citations: Citation[] }
+  | { type: "done"; message_id: number }
+  | { type: "error"; message: string };
+
+/**
+ * Ask a question and receive the answer as it is written.
+ *
+ * Uses `fetch` rather than `EventSource` because the request is a POST and
+ * needs an Authorization header, neither of which `EventSource` supports.
+ * Pass `signal` to abandon a half-written answer.
+ */
+export async function* streamChat(
+  repositoryId: number,
+  question: string,
+  signal?: AbortSignal,
+): AsyncGenerator<ChatStreamEvent> {
+  const token = getToken();
+  const path = `/repositories/${repositoryId}/chat/stream`;
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    signal,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ question }),
+  });
+
+  if (!response.ok) {
+    throw new ApiError(response.status, await errorMessage(response, path));
+  }
+  if (!response.body) {
+    throw new ApiError(response.status, "The server sent no response body to stream.");
+  }
+
+  yield* readSseStream<ChatStreamEvent>(response.body);
+}
 
 export interface FileTreeItem {
   id: number;

@@ -73,3 +73,44 @@ def test_citations_are_deduplicated_by_function():
 
     result = service.answer(repository_id=1, question="q")
     assert len(result.citations) == 1
+
+
+class FakeStreamingChat(FakeChat):
+    def stream(self, system_prompt: str, user_prompt: str):
+        self.last_user_prompt = user_prompt
+        yield "The handler "
+        yield "validates."
+
+
+def test_answer_stream_yields_tokens_then_citations():
+    store = FakeStore([_hit(1, "app/main.py")])
+    service = ChatService(embedder=FakeEmbedder(), store=store, chat=FakeStreamingChat())
+
+    chunks = list(service.answer_stream(7, "what happens?"))
+
+    texts = [c.text for c in chunks if c.text is not None]
+    assert "".join(texts) == "The handler validates."
+    # Citations come last, once, describing the whole answer.
+    assert chunks[-1].text is None
+    assert [c.file_path for c in chunks[-1].citations] == ["app/main.py"]
+
+
+def test_answer_stream_retrieves_before_the_first_token():
+    store = FakeStore([_hit(1, "app/main.py")])
+    chat = FakeStreamingChat()
+    service = ChatService(embedder=FakeEmbedder(), store=store, chat=chat)
+
+    stream = service.answer_stream(7, "what happens?")
+    next(stream)  # pull only the first token
+
+    assert store.searched == (7, 6)
+    assert "Context:" in chat.last_user_prompt
+
+
+def test_answer_stream_on_an_unindexed_repository_explains_itself():
+    service = ChatService(embedder=FakeEmbedder(), store=FakeStore([]), chat=FakeStreamingChat())
+
+    chunks = list(service.answer_stream(7, "anything?"))
+
+    assert "finished indexing" in chunks[0].text
+    assert chunks[-1].citations == []

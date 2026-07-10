@@ -6,12 +6,18 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.application.chat_service import ChatService
 from app.core.security import TokenError, decode_access_token
 from app.infrastructure.db.models import UserModel
 from app.infrastructure.db.repositories import UserRepository
 from app.infrastructure.db.session import get_db
 
 _bearer = HTTPBearer(auto_error=True)
+
+
+def get_chat_service() -> ChatService:
+    """The RAG service. A dependency so tests can swap in fake AI clients."""
+    return ChatService()
 
 
 def get_current_user(
