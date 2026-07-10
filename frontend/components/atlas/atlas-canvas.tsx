@@ -16,8 +16,8 @@ import { ChevronRight, Loader2 } from "lucide-react";
 
 import "@xyflow/react/dist/base.css";
 
-import { type Graph, type GraphEdge, type GraphNode } from "@/lib/api";
-import { ancestorChain } from "@/lib/atlas-graph";
+import { type Graph, type GraphEdge, type GraphEdgeKind, type GraphNode } from "@/lib/api";
+import { ancestorChain, nodesTouchedBy } from "@/lib/atlas-graph";
 import { useGraphChildren } from "@/lib/hooks";
 import { AtlasNode, ICONS, type AtlasNodeData } from "@/components/atlas/atlas-node";
 import { AtlasEdge, type AtlasEdgeData, type AtlasEdgeState } from "@/components/atlas/atlas-edge";
@@ -56,6 +56,12 @@ interface AtlasCanvasProps {
   rootKey: string;
   focusKey: string | null;
   onFocusHandled: () => void;
+  /**
+   * Edge kinds this mode is about. When set, everything else on the map fades:
+   * Dependency mode passes `["imports"]`. Omit for the unfiltered Architecture
+   * view. A selection still wins — focus mode takes over the dimming.
+   */
+  emphasisKinds?: readonly GraphEdgeKind[];
 }
 
 export function AtlasCanvas({
@@ -64,6 +70,7 @@ export function AtlasCanvas({
   rootKey,
   focusKey,
   onFocusHandled,
+  emphasisKinds,
 }: AtlasCanvasProps) {
   const { setCenter, fitView, getViewport, screenToFlowPosition } = useReactFlow();
 
@@ -324,6 +331,37 @@ export function AtlasCanvas({
     [tiers],
   );
 
+  const emphasis = useMemo(
+    () => (emphasisKinds?.length ? new Set(emphasisKinds) : null),
+    [emphasisKinds],
+  );
+
+  /** Nodes the emphasised edges touch — the only ones this mode leaves lit. */
+  const emphasised = useMemo(() => {
+    if (!emphasis) return null;
+    const visible = new Set(positioned.map((n) => n.key));
+    return nodesTouchedBy(children?.edges ?? [], emphasis, visible);
+  }, [emphasis, children?.edges, positioned]);
+
+  /**
+   * Some scopes have no edges of the emphasised kind at all — the repository
+   * root has no edges whatsoever, because backend and frontend talk over HTTP
+   * rather than importing each other. Dimming everything there would just grey
+   * out the map, so the mode stands down and says so instead.
+   */
+  const emphasisEmpty = emphasis !== null && emphasised?.size === 0;
+  const emphasisActive = emphasised !== null && !emphasisEmpty;
+
+  /** A selection means focus mode, which owns the dimming. Otherwise the mode does. */
+  const nodeTier = useCallback(
+    (key: string): 0 | 1 | 2 | 3 => {
+      if (selected) return tierOf(key);
+      if (emphasisActive) return emphasised!.has(key) ? 0 : 3;
+      return 0;
+    },
+    [selected, tierOf, emphasisActive, emphasised],
+  );
+
   const flowNodes: Node[] = useMemo(
     () =>
       positioned.map((node) => ({
@@ -345,10 +383,10 @@ export function AtlasCanvas({
             node.meta.start_line && node.meta.end_line
               ? node.meta.end_line - node.meta.start_line + 1
               : undefined,
-          tier: tierOf(node.key),
+          tier: nodeTier(node.key),
         } satisfies AtlasNodeData,
       })),
-    [positioned, selected, childCounts, tierOf],
+    [positioned, selected, childCounts, nodeTier],
   );
 
   const flowEdges: Edge[] = useMemo(() => {
@@ -360,6 +398,8 @@ export function AtlasCanvas({
         let state: AtlasEdgeState = "normal";
         if (id === hoveredEdgeId) {
           state = "active";
+        } else if (emphasisActive && !emphasis!.has(e.kind)) {
+          state = "dim";
         } else if (selected) {
           if (e.source_key === selected.key || e.target_key === selected.key) {
             state = "active";
@@ -377,7 +417,7 @@ export function AtlasCanvas({
           data: { kind: e.kind, weight: e.weight, state } satisfies AtlasEdgeData,
         };
       });
-  }, [children?.edges, positioned, selected, hoveredEdgeId, tierOf]);
+  }, [children?.edges, positioned, selected, hoveredEdgeId, tierOf, emphasis, emphasisActive]);
 
   const breadcrumb = stack.map((key) => byKey.get(key)).filter(Boolean) as GraphNode[];
   const settling = isLoading || laidOutFor !== scope;
@@ -417,6 +457,12 @@ export function AtlasCanvas({
       {positioned.length === 0 && !settling && (
         <p className="text-muted-foreground absolute inset-0 z-10 flex items-center justify-center text-sm">
           Nothing inside this node.
+        </p>
+      )}
+
+      {emphasisEmpty && !settling && positioned.length > 0 && (
+        <p className="border-border/70 bg-card/80 text-muted-foreground absolute top-4 right-4 z-10 max-w-xs rounded-full border px-3 py-1.5 text-[11px] backdrop-blur">
+          Nothing here imports anything else. Dive in to see dependencies.
         </p>
       )}
 
