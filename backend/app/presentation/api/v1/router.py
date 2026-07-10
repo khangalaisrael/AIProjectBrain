@@ -12,6 +12,7 @@ from app.presentation.api.v1 import (
     auth,
     docs,
     explorer,
+    flows,
     graph,
     health,
     learn,
@@ -30,3 +31,4 @@ api_router.include_router(learn.router)
 api_router.include_router(thinking.router)
 api_router.include_router(docs.router)
 api_router.include_router(graph.router)
+api_router.include_router(flows.router)

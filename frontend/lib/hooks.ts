@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type DocType,
   explainFile,
+  explainFlow,
   generateCourse,
   generateDecisions,
   generateDocument,
@@ -15,6 +16,8 @@ import {
   getDocuments,
   getFile,
   getFiles,
+  getFlowPath,
+  getFlows,
   getGitHubRepositories,
   getGraph,
   getGraphChildren,
@@ -191,6 +194,32 @@ export function useGraphChildren(repositoryId: number | null, key: string | null
     queryFn: () => getGraphChildren(repositoryId as number, key as string),
     enabled: repositoryId !== null && key !== null,
     staleTime: 5 * 60_000,
+  });
+}
+
+/** Request entry points for the Atlas "Request Flow" mode. */
+export function useFlows(repositoryId: number | null, enabled = true) {
+  return useQuery({
+    queryKey: ["flows", repositoryId],
+    queryFn: () => getFlows(repositoryId as number),
+    enabled: repositoryId !== null && enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useFlowPath(repositoryId: number | null, key: string | null) {
+  return useQuery({
+    queryKey: ["flow-path", repositoryId, key],
+    queryFn: () => getFlowPath(repositoryId as number, key as string),
+    enabled: repositoryId !== null && key !== null,
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useExplainFlow() {
+  return useMutation({
+    mutationFn: ({ repositoryId, key }: { repositoryId: number; key: string }) =>
+      explainFlow(repositoryId, key),
   });
 }
 

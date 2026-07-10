@@ -166,3 +166,41 @@ class GraphEdgeOut(BaseModel):
 class GraphOut(BaseModel):
     nodes: list[GraphNodeOut]
     edges: list[GraphEdgeOut]
+
+
+class FlowEntryOut(BaseModel):
+    key: str
+    name: str
+    path: str | None = None
+
+
+class FlowStepOut(BaseModel):
+    key: str
+    name: str
+    path: str | None = None
+    file_id: int | None = None
+    start_line: int | None = None
+    end_line: int | None = None
+    depth: int
+    caller_key: str | None = None
+
+
+class FlowEdgeOut(BaseModel):
+    source_key: str
+    target_key: str
+
+
+class FlowOut(BaseModel):
+    entry_key: str
+    steps: list[FlowStepOut]
+    edges: list[FlowEdgeOut]
+
+
+class StepExplanationOut(BaseModel):
+    key: str
+    explanation: str
+
+
+class FlowExplanationOut(BaseModel):
+    summary: str
+    steps: list[StepExplanationOut]

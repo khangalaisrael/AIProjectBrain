@@ -252,6 +252,49 @@ export const getGraphChildren = (repositoryId: number, key: string) =>
 export const getGraphNode = (repositoryId: number, key: string) =>
   apiFetch<GraphNode>(`/repositories/${repositoryId}/graph/node?key=${encodeURIComponent(key)}`);
 
+// ---- Request Flow (animated replay) ----
+
+export interface FlowEntry {
+  key: string;
+  name: string;
+  path: string | null;
+}
+
+export interface FlowStep {
+  key: string;
+  name: string;
+  path: string | null;
+  file_id: number | null;
+  start_line: number | null;
+  end_line: number | null;
+  depth: number;
+  caller_key: string | null;
+}
+
+export interface Flow {
+  entry_key: string;
+  steps: FlowStep[];
+  edges: { source_key: string; target_key: string }[];
+}
+
+export interface FlowExplanation {
+  summary: string;
+  steps: { key: string; explanation: string }[];
+}
+
+/** Request entry points: public route handlers nothing else calls. */
+export const getFlows = (repositoryId: number) =>
+  apiFetch<FlowEntry[]>(`/repositories/${repositoryId}/flows`);
+
+export const getFlowPath = (repositoryId: number, key: string) =>
+  apiFetch<Flow>(`/repositories/${repositoryId}/flows/path?key=${encodeURIComponent(key)}`);
+
+export const explainFlow = (repositoryId: number, key: string) =>
+  apiFetch<FlowExplanation>(
+    `/repositories/${repositoryId}/flows/explain?key=${encodeURIComponent(key)}`,
+    { method: "POST" },
+  );
+
 export const getDocuments = (repositoryId: number) =>
   apiFetch<Document[]>(`/repositories/${repositoryId}/docs`);
 

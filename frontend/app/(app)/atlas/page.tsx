@@ -10,19 +10,22 @@ import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SignInButton } from "@/components/auth/auth-controls";
 import { AtlasCanvas } from "@/components/atlas/atlas-canvas";
+import { FlowCanvas } from "@/components/atlas/flow-canvas";
 import { cn } from "@/lib/utils";
 
-// Phase A ships Architecture. The rest of the spec's modes reuse this same
-// graph with different highlighting and land next.
+// Architecture explores the graph; Request Flow replays a path through it.
+// The remaining modes reuse the same graph with different highlighting.
 const MODES = [
   { id: "architecture", label: "Architecture", ready: true },
-  { id: "request", label: "Request Flow", ready: false },
+  { id: "request", label: "Request Flow", ready: true },
   { id: "auth", label: "Authentication", ready: false },
   { id: "dependency", label: "Dependency", ready: false },
   { id: "database", label: "Database", ready: false },
   { id: "deployment", label: "Deployment", ready: false },
   { id: "event", label: "Event Flow", ready: false },
-];
+] as const;
+
+type ModeId = (typeof MODES)[number]["id"];
 
 const DEEPEST_LEVEL = 4;
 
@@ -31,6 +34,7 @@ export default function AtlasPage() {
   const { data: repositories } = useRepositories(isAuthenticated);
   const [repositoryId, setRepositoryId] = useState<number | null>(null);
   const [focusKey, setFocusKey] = useState<string | null>(null);
+  const [mode, setMode] = useState<ModeId>("architecture");
   const { setOpen: setPaletteOpen, setAtlasActions } = useCommandPaletteStore();
 
   const readyRepos = useMemo(
@@ -109,32 +113,36 @@ export default function AtlasPage() {
       {/* Modes + search */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="border-border/70 bg-muted/30 inline-flex flex-wrap gap-0.5 rounded-full border p-1">
-          {MODES.map((mode) => (
+          {MODES.map((m) => (
             <button
-              key={mode.id}
-              disabled={!mode.ready}
-              title={mode.ready ? undefined : "Coming next"}
+              key={m.id}
+              disabled={!m.ready}
+              onClick={() => m.ready && setMode(m.id)}
+              title={m.ready ? undefined : "Coming next"}
               className={cn(
                 "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-                mode.ready
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground/40 cursor-not-allowed",
+                !m.ready && "text-muted-foreground/40 cursor-not-allowed",
+                m.ready && mode === m.id && "bg-card text-foreground shadow-sm",
+                m.ready && mode !== m.id && "text-muted-foreground hover:text-foreground",
               )}
             >
-              {mode.label}
+              {m.label}
             </button>
           ))}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setPaletteOpen(true)}
-          className="border-border bg-muted/40 text-muted-foreground hover:bg-muted flex h-9 w-64 items-center gap-2 rounded-full border px-4 text-sm transition-colors"
-        >
-          <Search className="size-4" />
-          <span>Search the map…</span>
-          <kbd className="border-border ml-auto rounded border px-1.5 text-xs">Ctrl K</kbd>
-        </button>
+        {/* Search navigates the map; it has no meaning while replaying a request. */}
+        {mode === "architecture" && (
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            className="border-border bg-muted/40 text-muted-foreground hover:bg-muted flex h-9 w-64 items-center gap-2 rounded-full border px-4 text-sm transition-colors"
+          >
+            <Search className="size-4" />
+            <span>Search the map…</span>
+            <kbd className="border-border ml-auto rounded border px-1.5 text-xs">Ctrl K</kbd>
+          </button>
+        )}
       </div>
 
       <div className="min-h-0 flex-1">
@@ -143,15 +151,19 @@ export default function AtlasPage() {
             <MapIcon className="size-4 animate-pulse" /> Mapping the repository…
           </div>
         ) : hasGraph ? (
-          <ReactFlowProvider>
-            <AtlasCanvas
-              repositoryId={repositoryId as number}
-              fullGraph={graph.data!}
-              rootKey={rootKey as string}
-              focusKey={focusKey}
-              onFocusHandled={() => setFocusKey(null)}
-            />
-          </ReactFlowProvider>
+          mode === "request" ? (
+            <FlowCanvas repositoryId={repositoryId as number} />
+          ) : (
+            <ReactFlowProvider>
+              <AtlasCanvas
+                repositoryId={repositoryId as number}
+                fullGraph={graph.data!}
+                rootKey={rootKey as string}
+                focusKey={focusKey}
+                onFocusHandled={() => setFocusKey(null)}
+              />
+            </ReactFlowProvider>
+          )
         ) : (
           <EmptyState
             icon={Sparkles}
@@ -162,8 +174,9 @@ export default function AtlasPage() {
       </div>
 
       <p className="text-muted-foreground mt-2 text-[10px]">
-        Zoom or press Enter to dive into a node, Esc to surface. Arrow keys hop between cards. Call
-        and import edges are resolved by name and are approximate.
+        {mode === "request"
+          ? "Press play to watch the request travel its call path, or click a card to jump to that step. Call edges are resolved by name and are approximate."
+          : "Zoom or press Enter to dive into a node, Esc to surface. Arrow keys hop between cards. Call and import edges are resolved by name and are approximate."}
       </p>
     </div>
   );
