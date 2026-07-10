@@ -1,8 +1,21 @@
-import ELK from "elkjs/lib/elk.bundled.js";
+import { type ELK } from "elkjs/lib/elk-api";
 
 import { type Flow, type GraphEdge, type GraphNode, type GraphNodeKind } from "@/lib/api";
 
-const elk = new ELK();
+/**
+ * ELK's solver is ~440 kB and only two screens ever need it, so it is fetched
+ * on first layout rather than bundled into the route. Both callers already
+ * await, so nothing upstream changes. The promise is cached, not the instance:
+ * concurrent first layouts share one download instead of racing.
+ */
+let elkPromise: Promise<ELK> | null = null;
+
+function getElk(): Promise<ELK> {
+  if (!elkPromise) {
+    elkPromise = import("elkjs/lib/elk.bundled.js").then((mod) => new mod.default());
+  }
+  return elkPromise;
+}
 
 const FLOW_NODE = { width: 240, height: 64 };
 
@@ -40,7 +53,7 @@ export async function layoutFlow(flow: Flow): Promise<PositionedStep[]> {
     })),
   };
 
-  const laid = await elk.layout(graph);
+  const laid = await (await getElk()).layout(graph);
   const byId = new Map((laid.children ?? []).map((child) => [child.id, child]));
 
   return flow.steps.map((step) => {
@@ -110,7 +123,7 @@ export async function layoutGraph(
       })),
   };
 
-  const laid = await elk.layout(graph);
+  const laid = await (await getElk()).layout(graph);
   const byId = new Map((laid.children ?? []).map((child) => [child.id, child]));
 
   return nodes.map((node) => {
