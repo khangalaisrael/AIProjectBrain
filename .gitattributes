@@ -1,0 +1,12 @@
+# Keep LF in the working tree on every platform.
+#
+# Without this, core.autocrlf=true rewrites checked-out files to CRLF on Windows
+# and `prettier --check` fails locally on files CI considers clean, because
+# Prettier's endOfLine defaults to "lf".
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
