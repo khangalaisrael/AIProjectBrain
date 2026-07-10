@@ -17,7 +17,7 @@ import { ChevronRight, Loader2 } from "lucide-react";
 import "@xyflow/react/dist/base.css";
 
 import { type Graph, type GraphEdge, type GraphEdgeKind, type GraphNode } from "@/lib/api";
-import { ancestorChain, nodesTouchedBy } from "@/lib/atlas-graph";
+import { ancestorChain, callChain, nodesTouchedBy } from "@/lib/atlas-graph";
 import { useGraphChildren } from "@/lib/hooks";
 import { AtlasNode, ICONS, type AtlasNodeData } from "@/components/atlas/atlas-node";
 import { AtlasEdge, type AtlasEdgeData, type AtlasEdgeState } from "@/components/atlas/atlas-edge";
@@ -290,46 +290,29 @@ export function AtlasCanvas({
     return () => container.removeEventListener("keydown", onKeyDown);
   }, [selected, positioned, stack, enter, goTo, navigateTo, nodeAtCrosshair]);
 
-  // Focus-mode tiers: BFS out from the selection over the visible adjacency.
-  const adjacency = useMemo(() => {
-    const visible = new Set(positioned.map((n) => n.key));
-    const map = new Map<string, Set<string>>();
-    for (const e of children?.edges ?? []) {
-      if (!visible.has(e.source_key) || !visible.has(e.target_key)) continue;
-      if (!map.has(e.source_key)) map.set(e.source_key, new Set());
-      if (!map.has(e.target_key)) map.set(e.target_key, new Set());
-      map.get(e.source_key)!.add(e.target_key);
-      map.get(e.target_key)!.add(e.source_key);
-    }
-    return map;
-  }, [children?.edges, positioned]);
-
+  /**
+   * Focus mode lights the whole chain through the selection, however long —
+   * not just its immediate neighbours. Tier 1 is a direct caller or callee,
+   * tier 2 is the rest of the chain, tier 3 is everything off it.
+   */
   const tiers = useMemo(() => {
     if (!selected) return null;
-    const distance = new Map<string, number>([[selected.key, 0]]);
-    let frontier = [selected.key];
-    for (let depth = 1; depth <= 2 && frontier.length > 0; depth++) {
-      const next: string[] = [];
-      for (const key of frontier) {
-        for (const neighbor of adjacency.get(key) ?? []) {
-          if (distance.has(neighbor)) continue;
-          distance.set(neighbor, depth);
-          next.push(neighbor);
-        }
-      }
-      frontier = next;
-    }
-    return distance;
-  }, [selected, adjacency]);
+    const visible = new Set(positioned.map((n) => n.key));
+    return callChain(children?.edges ?? [], selected.key, visible);
+  }, [selected, children?.edges, positioned]);
 
   const tierOf = useCallback(
     (key: string): 0 | 1 | 2 | 3 => {
       if (!tiers) return 0;
       const d = tiers.get(key);
-      return d === undefined ? 3 : (d as 0 | 1 | 2);
+      if (d === undefined) return 3;
+      return d === 0 ? 0 : d === 1 ? 1 : 2;
     },
     [tiers],
   );
+
+  /** True while `key` sits somewhere on the selected node's chain. */
+  const onPath = useCallback((key: string) => tierOf(key) < 3, [tierOf]);
 
   const emphasis = useMemo(
     () => (emphasisKinds?.length ? new Set(emphasisKinds) : null),
@@ -403,7 +386,8 @@ export function AtlasCanvas({
         } else if (selected) {
           if (e.source_key === selected.key || e.target_key === selected.key) {
             state = "active";
-          } else if (tierOf(e.source_key) <= 1 && tierOf(e.target_key) <= 1) {
+          } else if (onPath(e.source_key) && onPath(e.target_key)) {
+            // A link further along the same chain, not just a direct neighbour.
             state = "normal";
           } else {
             state = "dim";
@@ -417,7 +401,7 @@ export function AtlasCanvas({
           data: { kind: e.kind, weight: e.weight, state } satisfies AtlasEdgeData,
         };
       });
-  }, [children?.edges, positioned, selected, hoveredEdgeId, tierOf, emphasis, emphasisActive]);
+  }, [children?.edges, positioned, selected, hoveredEdgeId, onPath, emphasis, emphasisActive]);
 
   const breadcrumb = stack.map((key) => byKey.get(key)).filter(Boolean) as GraphNode[];
   const settling = isLoading || laidOutFor !== scope;

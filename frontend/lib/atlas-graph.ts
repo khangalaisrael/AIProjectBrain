@@ -33,6 +33,55 @@ export function ancestorChain(
 }
 
 /**
+ * Hop distance from `selectedKey` along the directed chain running through it:
+ * everything it reaches downstream, plus everything that reaches it upstream.
+ *
+ * Deliberately *not* an undirected walk. Two functions that merely share a
+ * caller are not on each other's path, and lighting them up is what made the
+ * old two-hop neighbourhood noisy. Following edge direction keeps the chain a
+ * chain.
+ *
+ * Distances are the shortest hop count in whichever direction found the node.
+ * Cycles terminate — a node is measured once.
+ */
+export function callChain(
+  edges: readonly GraphEdge[],
+  selectedKey: string,
+  visible: ReadonlySet<string>,
+): Map<string, number> {
+  const downstream = new Map<string, Set<string>>();
+  const upstream = new Map<string, Set<string>>();
+
+  for (const edge of edges) {
+    if (!visible.has(edge.source_key) || !visible.has(edge.target_key)) continue;
+    if (!downstream.has(edge.source_key)) downstream.set(edge.source_key, new Set());
+    if (!upstream.has(edge.target_key)) upstream.set(edge.target_key, new Set());
+    downstream.get(edge.source_key)!.add(edge.target_key);
+    upstream.get(edge.target_key)!.add(edge.source_key);
+  }
+
+  const distance = new Map<string, number>([[selectedKey, 0]]);
+
+  for (const adjacency of [downstream, upstream]) {
+    let frontier = [selectedKey];
+    for (let depth = 1; frontier.length > 0; depth++) {
+      const next: string[] = [];
+      for (const key of frontier) {
+        for (const neighbor of adjacency.get(key) ?? []) {
+          const known = distance.get(neighbor);
+          if (known !== undefined && known <= depth) continue;
+          distance.set(neighbor, depth);
+          next.push(neighbor);
+        }
+      }
+      frontier = next;
+    }
+  }
+
+  return distance;
+}
+
+/**
  * The nodes that at least one edge of an emphasised kind touches.
  *
  * A focused Atlas mode (Dependency emphasises `imports`) fades everything this

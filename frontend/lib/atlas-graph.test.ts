@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { type GraphEdge, type GraphEdgeKind, type GraphNode } from "@/lib/api";
-import { ancestorChain, nodesTouchedBy } from "@/lib/atlas-graph";
+import { ancestorChain, callChain, nodesTouchedBy } from "@/lib/atlas-graph";
 
 function node(key: string, parent_key: string | null): GraphNode {
   return { key, kind: "function", level: 4, name: key, path: null, parent_key, meta: {} };
@@ -104,5 +104,77 @@ describe("nodesTouchedBy", () => {
     const kinds = new Set<GraphEdgeKind>(["extends", "implements"]);
     const touched = nodesTouchedBy(edges, kinds, new Set(["a", "b", "c", "d"]));
     expect([...touched].sort()).toEqual(["a", "b", "c", "d"]);
+  });
+});
+
+describe("callChain", () => {
+  const ALL = (...keys: string[]) => new Set(keys);
+
+  it("puts the selection at distance zero", () => {
+    expect(callChain([], "a", ALL("a")).get("a")).toBe(0);
+  });
+
+  it("follows callees downstream", () => {
+    const edges = [edge("a", "b", "calls"), edge("b", "c", "calls")];
+    const d = callChain(edges, "a", ALL("a", "b", "c"));
+    expect(d.get("b")).toBe(1);
+    expect(d.get("c")).toBe(2);
+  });
+
+  it("follows callers upstream", () => {
+    const edges = [edge("a", "b", "calls"), edge("b", "c", "calls")];
+    const d = callChain(edges, "c", ALL("a", "b", "c"));
+    expect(d.get("b")).toBe(1);
+    expect(d.get("a")).toBe(2);
+  });
+
+  it("reaches the whole chain, however long", () => {
+    // The old two-hop cap stopped at "c" and dimmed the rest.
+    const edges = [
+      edge("a", "b", "calls"),
+      edge("b", "c", "calls"),
+      edge("c", "d", "calls"),
+      edge("d", "e", "calls"),
+    ];
+    const d = callChain(edges, "a", ALL("a", "b", "c", "d", "e"));
+    expect(d.get("e")).toBe(4);
+    expect(d.size).toBe(5);
+  });
+
+  it("excludes a sibling that merely shares a caller", () => {
+    // parent calls both; "me" and "sibling" are not on each other's path.
+    const edges = [edge("parent", "me", "calls"), edge("parent", "sibling", "calls")];
+    const d = callChain(edges, "me", ALL("parent", "me", "sibling"));
+    expect(d.get("parent")).toBe(1);
+    expect(d.has("sibling")).toBe(false);
+  });
+
+  it("spans both directions through the selection", () => {
+    const edges = [edge("caller", "me", "calls"), edge("me", "callee", "calls")];
+    const d = callChain(edges, "me", ALL("caller", "me", "callee"));
+    expect(d.get("caller")).toBe(1);
+    expect(d.get("callee")).toBe(1);
+  });
+
+  it("keeps the shortest distance when two routes reach a node", () => {
+    const edges = [edge("a", "b", "calls"), edge("b", "c", "calls"), edge("a", "c", "calls")];
+    expect(callChain(edges, "a", ALL("a", "b", "c")).get("c")).toBe(1);
+  });
+
+  it("terminates on a cycle", () => {
+    const edges = [edge("a", "b", "calls"), edge("b", "a", "calls")];
+    const d = callChain(edges, "a", ALL("a", "b"));
+    expect(d.get("a")).toBe(0);
+    expect(d.get("b")).toBe(1);
+  });
+
+  it("ignores edges leaving the visible scope", () => {
+    const d = callChain([edge("a", "offscreen", "calls")], "a", ALL("a"));
+    expect(d.size).toBe(1);
+  });
+
+  it("leaves an unconnected node off the chain entirely", () => {
+    const d = callChain([edge("a", "b", "calls")], "a", ALL("a", "b", "lonely"));
+    expect(d.has("lonely")).toBe(false);
   });
 });
