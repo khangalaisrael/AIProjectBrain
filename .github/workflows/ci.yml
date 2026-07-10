@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# A newer push to the same ref makes the in-flight run irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # Not a secret. `Settings.token_encryption_key` defaults to "" and
+      # `crypto._cipher()` raises on an empty key, so the fixtures that write a
+      # user's access token need *some* valid Fernet key. The CI database is an
+      # ephemeral in-memory SQLite, so this one protects nothing.
+      TOKEN_ENCRYPTION_KEY: z4jt9Ma1GLY8CtF8RDGaNLs0QXfiJf1itifSarFpetI=
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - run: pip install -e ".[dev]"
+
+      - run: ruff check .
+
+      - run: black --check .
+
+      - run: pytest
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run format:check
+
+      - run: npm run test:run
+
+      - run: npm run build
