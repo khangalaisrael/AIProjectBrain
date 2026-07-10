@@ -17,6 +17,7 @@ import { ChevronRight, Loader2 } from "lucide-react";
 import "@xyflow/react/dist/base.css";
 
 import { type Graph, type GraphEdge, type GraphNode } from "@/lib/api";
+import { ancestorChain } from "@/lib/atlas-graph";
 import { useGraphChildren } from "@/lib/hooks";
 import { AtlasNode, ICONS, type AtlasNodeData } from "@/components/atlas/atlas-node";
 import { AtlasEdge, type AtlasEdgeData, type AtlasEdgeState } from "@/components/atlas/atlas-edge";
@@ -135,19 +136,9 @@ export function AtlasCanvas({
   // A search hit: rebuild the stack down to the node's parent, then fly to it.
   useEffect(() => {
     if (!focusKey) return;
-    const target = byKey.get(focusKey);
-    if (!target) return;
-
-    const chain: string[] = [];
-    let cursor: GraphNode | undefined = target.parent_key
-      ? byKey.get(target.parent_key)
-      : undefined;
-    while (cursor) {
-      chain.unshift(cursor.key);
-      cursor = cursor.parent_key ? byKey.get(cursor.parent_key) : undefined;
-    }
+    if (!byKey.has(focusKey)) return;
     pendingFocus.current = focusKey;
-    setStack(chain.length ? chain : [rootKey]);
+    setStack(ancestorChain(byKey, focusKey, rootKey));
   }, [focusKey, byKey, rootKey]);
 
   const enter = useCallback((node: GraphNode) => {
