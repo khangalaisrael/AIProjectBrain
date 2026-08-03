@@ -12,8 +12,8 @@ import { Button } from "@/components/ui/button";
 import { ResizeHandle } from "@/components/ui/resize-handle";
 import { SignInButton } from "@/components/auth/auth-controls";
 import { CodeViewer } from "@/components/explorer/code-viewer";
+import { FileTree } from "@/components/explorer/file-tree";
 import { Markdown } from "@/components/chat/markdown";
-import { cn } from "@/lib/utils";
 
 export default function CodeExplorerPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -112,28 +112,7 @@ export default function CodeExplorerPage() {
           {filesLoading ? (
             <div className="text-muted-foreground p-3 text-sm">Loading…</div>
           ) : (
-            <ul className="p-1">
-              {(files ?? []).map((f) => (
-                <li key={f.id}>
-                  <button
-                    onClick={() => setFileId(f.id)}
-                    className={cn(
-                      "flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
-                      fileId === f.id
-                        ? "bg-muted text-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                    )}
-                  >
-                    <span className="truncate">{f.path}</span>
-                    {f.function_count > 0 && (
-                      <span className="text-muted-foreground shrink-0 text-xs">
-                        {f.function_count}
-                      </span>
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <FileTree files={files ?? []} selectedId={fileId} onSelect={setFileId} />
           )}
         </div>
 
