@@ -15,6 +15,7 @@ import {
   getDecisions,
   getDocuments,
   getFile,
+  getFileChatMessages,
   getFiles,
   getFlowPath,
   getFlows,
@@ -119,6 +120,16 @@ export function useExplainFile() {
   return useMutation({
     mutationFn: ({ repositoryId, fileId }: { repositoryId: number; fileId: number }) =>
       explainFile(repositoryId, fileId),
+  });
+}
+
+/** The saved per-file conversation thread for this user. */
+export function useFileChatMessages(repositoryId: number | null, fileId: number | null) {
+  return useQuery({
+    queryKey: ["file-chat", repositoryId, fileId],
+    queryFn: () => getFileChatMessages(repositoryId as number, fileId as number),
+    enabled: repositoryId !== null && fileId !== null,
+    retry: false,
   });
 }
 
