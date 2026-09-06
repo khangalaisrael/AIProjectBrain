@@ -1,5 +1,7 @@
 """Code Explorer endpoint tests (GitHub + LLM mocked)."""
 
+import json
+
 import pytest
 
 from app.domain.enums import ImportStatus, Language
@@ -14,6 +16,21 @@ class FakeGitHub:
 class FakeChat:
     def complete(self, system_prompt: str, user_prompt: str) -> str:
         return "This file defines the entry point."
+
+    def stream(self, system_prompt: str, user_prompt: str):
+        # The user prompt should carry the file body and (on follow-ups) the
+        # earlier turns, so tests can assert context is threaded through.
+        FakeChat.last_user_prompt = user_prompt
+        yield "It "
+        yield "returns 1."
+
+
+def _sse_events(body: str) -> list[dict]:
+    return [
+        json.loads(frame[len("data: ") :])
+        for frame in body.strip().split("\n\n")
+        if frame.startswith("data: ")
+    ]
 
 
 @pytest.fixture
@@ -97,3 +114,75 @@ def test_get_unknown_file_is_404(client, auth_headers, seeded, mock_clients):
 
 def test_explorer_requires_auth(client):
     assert client.get("/api/v1/repositories/1/files").status_code in (401, 403)
+
+
+def _ask(client, headers, seeded, question: str):
+    return client.post(
+        f"/api/v1/repositories/{seeded['repo_id']}/files/{seeded['file_id']}/chat/stream",
+        headers=headers,
+        json={"question": question},
+    )
+
+
+def test_file_chat_streams_and_persists(client, auth_headers, seeded, mock_clients):
+    resp = _ask(client, auth_headers, seeded, "What does this file do?")
+    assert resp.status_code == 200
+
+    events = _sse_events(resp.text)
+    assert [e["type"] for e in events] == ["token", "token", "done"]
+    assert "".join(e["text"] for e in events if e["type"] == "token") == "It returns 1."
+
+    history = client.get(
+        f"/api/v1/repositories/{seeded['repo_id']}/files/{seeded['file_id']}/chat",
+        headers=auth_headers,
+    ).json()
+    assert [(m["role"], m["content"]) for m in history] == [
+        ("user", "What does this file do?"),
+        ("assistant", "It returns 1."),
+    ]
+
+
+def test_file_chat_threads_prior_turns(client, auth_headers, seeded, mock_clients):
+    _ask(client, auth_headers, seeded, "What does this file do?")
+    _ask(client, auth_headers, seeded, "And the return value?")
+    assert "Conversation so far:" in FakeChat.last_user_prompt
+    assert "What does this file do?" in FakeChat.last_user_prompt
+
+
+def test_file_chat_is_scoped_per_file(client, auth_headers, seeded, mock_clients, db_session):
+    other = FileModel(
+        repository_id=seeded["repo_id"], path="app/other.py", language=Language.PYTHON
+    )
+    db_session.add(other)
+    db_session.commit()
+
+    _ask(client, auth_headers, seeded, "Question about main.py")
+
+    resp = client.get(
+        f"/api/v1/repositories/{seeded['repo_id']}/files/{other.id}/chat", headers=auth_headers
+    )
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_file_chat_clear(client, auth_headers, seeded, mock_clients):
+    _ask(client, auth_headers, seeded, "Anything")
+    del_resp = client.delete(
+        f"/api/v1/repositories/{seeded['repo_id']}/files/{seeded['file_id']}/chat",
+        headers=auth_headers,
+    )
+    assert del_resp.status_code == 204
+    remaining = client.get(
+        f"/api/v1/repositories/{seeded['repo_id']}/files/{seeded['file_id']}/chat",
+        headers=auth_headers,
+    ).json()
+    assert remaining == []
+
+
+def test_file_chat_on_unowned_repo_is_404(client, auth_headers):
+    resp = client.post(
+        "/api/v1/repositories/4321/files/1/chat/stream",
+        headers=auth_headers,
+        json={"question": "hi"},
+    )
+    assert resp.status_code == 404

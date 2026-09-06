@@ -245,3 +245,33 @@ class ChatMessageModel(TimestampMixin, Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     # Only assistant turns carry citations; a user turn stores an empty list.
     citations: Mapped[list] = mapped_column(JSON, default=list)
+
+
+class FileChatMessageModel(TimestampMixin, Base):
+    """One turn of a conversation scoped to a single file in the Code Explorer."""
+
+    __tablename__ = "file_chat_messages"
+    __table_args__ = (
+        Index(
+            "ix_file_chat_messages_thread",
+            "repository_id",
+            "user_id",
+            "file_id",
+            "id",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    repository_id: Mapped[int] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    # A thread is per (user, repository, file): the same file has its own
+    # conversation for each person looking at it.
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    file_id: Mapped[int] = mapped_column(
+        ForeignKey("files.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)

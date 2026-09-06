@@ -114,6 +114,21 @@ class ExplainResponse(BaseModel):
     explanation: str
 
 
+class FileQuestionRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=4000)
+
+
+class FileChatMessageOut(BaseModel):
+    """One stored turn of a conversation about a single file."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    role: str
+    content: str
+    created_at: datetime
+
+
 class FolderMapItem(BaseModel):
     folder: str
     file_count: int
