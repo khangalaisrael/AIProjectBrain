@@ -220,6 +220,59 @@ export const explainFile = (repositoryId: number, fileId: number) =>
     method: "POST",
   });
 
+export interface FileChatMessage {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+}
+
+export const getFileChatMessages = (repositoryId: number, fileId: number) =>
+  apiFetch<FileChatMessage[]>(`/repositories/${repositoryId}/files/${fileId}/chat`);
+
+export const clearFileChatMessages = (repositoryId: number, fileId: number) =>
+  apiFetch<void>(`/repositories/${repositoryId}/files/${fileId}/chat`, { method: "DELETE" });
+
+/** One event from a streamed per-file answer. */
+export type FileChatStreamEvent =
+  | { type: "token"; text: string }
+  | { type: "done"; message_id: number }
+  | { type: "error"; message: string };
+
+/**
+ * Ask a question about a single file and receive the answer as it is written.
+ *
+ * Mirrors {@link streamChat}: a POST with an Authorization header, so `fetch`
+ * rather than `EventSource`. Pass `signal` to abandon a half-written answer.
+ */
+export async function* streamFileQuestion(
+  repositoryId: number,
+  fileId: number,
+  question: string,
+  signal?: AbortSignal,
+): AsyncGenerator<FileChatStreamEvent> {
+  const token = getToken();
+  const path = `/repositories/${repositoryId}/files/${fileId}/chat/stream`;
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    signal,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ question }),
+  });
+
+  if (!response.ok) {
+    throw new ApiError(response.status, await errorMessage(response, path));
+  }
+  if (!response.body) {
+    throw new ApiError(response.status, "The server sent no response body to stream.");
+  }
+
+  yield* readSseStream<FileChatStreamEvent>(response.body);
+}
+
 export interface FolderMapItem {
   folder: string;
   file_count: number;

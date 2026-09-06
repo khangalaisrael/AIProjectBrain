@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.infrastructure.db.models import FileModel, FunctionModel, RepositoryModel
+from app.infrastructure.db.models import (
+    FileChatMessageModel,
+    FileModel,
+    FunctionModel,
+    RepositoryModel,
+)
 from app.infrastructure.db.repositories import FileRepository
 from app.infrastructure.github.client import GitHubClient
 from app.infrastructure.llm.openai_chat import OpenAIChat
@@ -19,6 +25,14 @@ _EXPLAIN_SYSTEM = (
     "who is new to the codebase. Cover its purpose, main responsibilities, and "
     "the notable functions and how they fit together. Be concise, concrete, and "
     "use short markdown sections."
+)
+
+_ASK_SYSTEM = (
+    "You are a senior engineer answering questions about ONE source file for a "
+    "developer reading it. Answer only from the file's content shown below and "
+    "the conversation so far. If the file does not contain the answer, say so "
+    "plainly rather than guessing. Be concise and concrete, use markdown, and "
+    "quote short snippets with line references where it helps."
 )
 
 
@@ -61,6 +75,32 @@ class ExplorerService:
             f"```\n{content[:_MAX_EXPLAIN_CHARS]}\n```"
         )
         return chat.complete(_EXPLAIN_SYSTEM, user_prompt)
+
+    async def file_content(self, repo: RepositoryModel, file: FileModel, token: str | None) -> str:
+        """The file's current source text, fetched from GitHub."""
+        return await self._fetch_content(repo, file, token)
+
+    def stream_file_answer(
+        self,
+        file: FileModel,
+        content: str,
+        question: str,
+        history: Iterable[FileChatMessageModel] = (),
+    ) -> Iterator[str]:
+        """Answer a question about one file, streamed a delta at a time.
+
+        ``history`` is the earlier turns of this file's thread (oldest first);
+        it is folded into the prompt so follow-up questions keep their context.
+        """
+        chat = self._chat or OpenAIChat()
+        convo = "".join(f"{turn.role.capitalize()}: {turn.content}\n" for turn in history)
+        user_prompt = (
+            (f"Conversation so far:\n{convo}\n" if convo else "")
+            + f"File: {file.path}\nLanguage: {file.language or 'unknown'}\n\n"
+            + f"```\n{content[:_MAX_EXPLAIN_CHARS]}\n```\n\n"
+            + f"Question: {question}"
+        )
+        yield from chat.stream(_ASK_SYSTEM, user_prompt)
 
     async def _fetch_content(
         self, repo: RepositoryModel, file: FileModel, token: str | None

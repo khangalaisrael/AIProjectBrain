@@ -14,6 +14,7 @@ from app.infrastructure.db.models import (
     ChatMessageModel,
     DecisionModel,
     DocumentModel,
+    FileChatMessageModel,
     FileModel,
     FunctionModel,
     GraphEdgeModel,
@@ -360,6 +361,54 @@ class ChatMessageRepository:
         stmt = delete(ChatMessageModel).where(
             ChatMessageModel.repository_id == repository_id,
             ChatMessageModel.user_id == user_id,
+        )
+        deleted = self._session.execute(stmt).rowcount or 0
+        self._session.commit()
+        return deleted
+
+
+class FileChatMessageRepository:
+    """The stored conversation between one user and one file of a repository."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def list_for_thread(
+        self, repository_id: int, user_id: int, file_id: int
+    ) -> list[FileChatMessageModel]:
+        """The file's thread for this user, in the order it was written."""
+        stmt = (
+            select(FileChatMessageModel)
+            .where(
+                FileChatMessageModel.repository_id == repository_id,
+                FileChatMessageModel.user_id == user_id,
+                FileChatMessageModel.file_id == file_id,
+            )
+            .order_by(FileChatMessageModel.id)
+        )
+        return list(self._session.scalars(stmt))
+
+    def append(
+        self, repository_id: int, user_id: int, file_id: int, role: str, content: str
+    ) -> FileChatMessageModel:
+        model = FileChatMessageModel(
+            repository_id=repository_id,
+            user_id=user_id,
+            file_id=file_id,
+            role=role,
+            content=content,
+        )
+        self._session.add(model)
+        self._session.commit()
+        self._session.refresh(model)
+        return model
+
+    def clear_thread(self, repository_id: int, user_id: int, file_id: int) -> int:
+        """Delete the file's thread. Returns how many messages went."""
+        stmt = delete(FileChatMessageModel).where(
+            FileChatMessageModel.repository_id == repository_id,
+            FileChatMessageModel.user_id == user_id,
+            FileChatMessageModel.file_id == file_id,
         )
         deleted = self._session.execute(stmt).rowcount or 0
         self._session.commit()

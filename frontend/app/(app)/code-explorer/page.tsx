@@ -1,17 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FileCode2, Loader2, Sparkles } from "lucide-react";
+import { FileCode2, Loader2, MessageSquare, Sparkles } from "lucide-react";
 
 import { useAuth, useExplainFile, useFile, useFiles, useRepositories } from "@/lib/hooks";
 import { PANEL } from "@/lib/panel-size-store";
 import { useResizable } from "@/lib/use-resizable";
+import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { ResizeHandle } from "@/components/ui/resize-handle";
 import { SignInButton } from "@/components/auth/auth-controls";
 import { CodeViewer } from "@/components/explorer/code-viewer";
+import { FileChat } from "@/components/explorer/file-chat";
 import { FileTree } from "@/components/explorer/file-tree";
 import { Markdown } from "@/components/chat/markdown";
 
@@ -21,6 +23,7 @@ export default function CodeExplorerPage() {
 
   const [repositoryId, setRepositoryId] = useState<number | null>(null);
   const [fileId, setFileId] = useState<number | null>(null);
+  const [asideMode, setAsideMode] = useState<"explain" | "ask">("explain");
 
   const readyRepos = useMemo(
     () => (repositories ?? []).filter((r) => r.status === "ready"),
@@ -47,6 +50,7 @@ export default function CodeExplorerPage() {
   // Reset selection + explanation when switching repository.
   useEffect(() => {
     setFileId(null);
+    setAsideMode("explain");
     explain.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repositoryId]);
@@ -151,58 +155,92 @@ export default function CodeExplorerPage() {
           style={{ "--panel-w": `${aside.width}px` } as React.CSSProperties}
           className="border-border flex min-h-0 w-full shrink-0 flex-col overflow-hidden rounded-lg border lg:w-[var(--panel-w)]"
         >
-          <div className="min-h-0 flex-1 overflow-y-auto p-3">
-            {file && file.functions.length > 0 && (
-              <div className="mb-4">
-                <p className="text-muted-foreground mb-2 text-xs font-medium">
-                  Functions ({file.functions.length})
-                </p>
-                <ul className="space-y-1">
-                  {file.functions.map((fn) => (
-                    <li key={fn.id} className="text-sm">
-                      <span className="font-mono">{fn.name}</span>
-                      <span className="text-muted-foreground text-xs">
-                        {" "}
-                        · {fn.start_line}-{fn.end_line}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {explain.data ? (
-              <div>
-                <p className="text-muted-foreground mb-2 text-xs font-medium">AI explanation</p>
-                <Markdown>{explain.data.explanation}</Markdown>
-              </div>
-            ) : file ? (
-              <div className="text-muted-foreground text-sm">
-                Get an AI-generated explanation of this file.
-              </div>
-            ) : (
-              <div className="text-muted-foreground text-sm">
-                Select a file to see its functions and request an explanation.
-              </div>
-            )}
+          <div className="border-border flex shrink-0 items-center gap-1 border-b p-2">
+            {(["explain", "ask"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setAsideMode(mode)}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                  asideMode === mode
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {mode === "explain" ? (
+                  <Sparkles className="size-3.5" />
+                ) : (
+                  <MessageSquare className="size-3.5" />
+                )}
+                {mode === "explain" ? "Explanation" : "Ask"}
+              </button>
+            ))}
           </div>
 
-          {file && (
-            <div className="border-border border-t p-3">
-              <Button
-                className="w-full"
-                onClick={() =>
-                  repositoryId !== null && explain.mutate({ repositoryId, fileId: file.id })
-                }
-                disabled={explain.isPending}
-              >
-                {explain.isPending ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Sparkles className="size-4" />
+          {asideMode === "explain" ? (
+            <>
+              <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                {file && file.functions.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-muted-foreground mb-2 text-xs font-medium">
+                      Functions ({file.functions.length})
+                    </p>
+                    <ul className="space-y-1">
+                      {file.functions.map((fn) => (
+                        <li key={fn.id} className="text-sm">
+                          <span className="font-mono">{fn.name}</span>
+                          <span className="text-muted-foreground text-xs">
+                            {" "}
+                            · {fn.start_line}-{fn.end_line}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
-                Explain this file
-              </Button>
+
+                {explain.data ? (
+                  <div>
+                    <p className="text-muted-foreground mb-2 text-xs font-medium">AI explanation</p>
+                    <Markdown>{explain.data.explanation}</Markdown>
+                  </div>
+                ) : file ? (
+                  <div className="text-muted-foreground text-sm">
+                    Get an AI-generated explanation of this file.
+                  </div>
+                ) : (
+                  <div className="text-muted-foreground text-sm">
+                    Select a file to see its functions and request an explanation.
+                  </div>
+                )}
+              </div>
+
+              {file && (
+                <div className="border-border border-t p-3">
+                  <Button
+                    className="w-full"
+                    onClick={() =>
+                      repositoryId !== null && explain.mutate({ repositoryId, fileId: file.id })
+                    }
+                    disabled={explain.isPending}
+                  >
+                    {explain.isPending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="size-4" />
+                    )}
+                    Explain this file
+                  </Button>
+                </div>
+              )}
+            </>
+          ) : file && repositoryId !== null ? (
+            <div className="flex min-h-0 flex-1 flex-col p-3">
+              <FileChat repositoryId={repositoryId} fileId={file.id} />
+            </div>
+          ) : (
+            <div className="text-muted-foreground p-3 text-sm">
+              Select a file to ask questions about it.
             </div>
           )}
         </div>
