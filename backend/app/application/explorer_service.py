@@ -15,7 +15,7 @@ from app.infrastructure.db.models import (
 )
 from app.infrastructure.db.repositories import FileRepository
 from app.infrastructure.github.client import GitHubClient
-from app.infrastructure.llm.openai_chat import OpenAIChat
+from app.infrastructure.llm import ChatModel, make_chat
 
 # Keep the file content sent to the model bounded.
 _MAX_EXPLAIN_CHARS = 12_000
@@ -48,7 +48,7 @@ class ExplorerService:
         self,
         session: Session,
         github: GitHubClient | None = None,
-        chat: OpenAIChat | None = None,
+        chat: ChatModel | None = None,
     ) -> None:
         self._files = FileRepository(session)
         self._github = github
@@ -69,7 +69,7 @@ class ExplorerService:
 
     async def explain_file(self, repo: RepositoryModel, file: FileModel, token: str | None) -> str:
         content = await self._fetch_content(repo, file, token)
-        chat = self._chat or OpenAIChat()
+        chat = self._chat or make_chat()
         user_prompt = (
             f"File: {file.path}\nLanguage: {file.language or 'unknown'}\n\n"
             f"```\n{content[:_MAX_EXPLAIN_CHARS]}\n```"
@@ -92,7 +92,7 @@ class ExplorerService:
         ``history`` is the earlier turns of this file's thread (oldest first);
         it is folded into the prompt so follow-up questions keep their context.
         """
-        chat = self._chat or OpenAIChat()
+        chat = self._chat or make_chat()
         convo = "".join(f"{turn.role.capitalize()}: {turn.content}\n" for turn in history)
         user_prompt = (
             (f"Conversation so far:\n{convo}\n" if convo else "")

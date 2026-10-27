@@ -26,5 +26,7 @@ USER brain
 
 EXPOSE 8000
 
-# Compose overrides this for the worker.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Compose overrides this for the worker. Vercel's container runtime tells the
+# server which port to bind through $PORT; elsewhere it falls back to 8000.
+# Migrations run first so a deploy brings the schema along with the code.
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

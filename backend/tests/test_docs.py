@@ -35,7 +35,7 @@ class FakeChat:
 def mock_clients(monkeypatch):
     FakeChat.last_user_prompt = ""
     monkeypatch.setattr("app.application.docs_service.GitHubClient", lambda: FakeGitHub())
-    monkeypatch.setattr("app.application.docs_service.OpenAIChat", lambda: FakeChat())
+    monkeypatch.setattr("app.application.docs_service.make_chat", lambda: FakeChat())
 
 
 @pytest.fixture

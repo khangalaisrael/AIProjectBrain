@@ -36,7 +36,7 @@ def _sse_events(body: str) -> list[dict]:
 @pytest.fixture
 def mock_clients(monkeypatch):
     monkeypatch.setattr("app.application.explorer_service.GitHubClient", lambda: FakeGitHub())
-    monkeypatch.setattr("app.application.explorer_service.OpenAIChat", lambda: FakeChat())
+    monkeypatch.setattr("app.application.explorer_service.make_chat", lambda: FakeChat())
 
 
 @pytest.fixture

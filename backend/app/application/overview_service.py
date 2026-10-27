@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.infrastructure.db.models import OverviewModel, RepositoryModel
 from app.infrastructure.db.repositories import FileRepository, OverviewRepository
 from app.infrastructure.github.client import GitHubClient, GitHubError
-from app.infrastructure.llm.openai_chat import OpenAIChat
+from app.infrastructure.llm import ChatModel, make_chat
 
 _README_CANDIDATES = ["README.md", "readme.md", "README.rst", "README.txt", "README"]
 
@@ -29,7 +29,7 @@ class OverviewService:
         self,
         session: Session,
         github: GitHubClient | None = None,
-        chat: OpenAIChat | None = None,
+        chat: ChatModel | None = None,
     ) -> None:
         self._files = FileRepository(session)
         self._overviews = OverviewRepository(session)
@@ -52,7 +52,7 @@ class OverviewService:
 
     async def generate(self, repo: RepositoryModel, token: str | None) -> OverviewModel:
         context = await self._build_context(repo, token)
-        data = (self._chat or OpenAIChat()).complete_json(_SYSTEM, context)
+        data = (self._chat or make_chat()).complete_json(_SYSTEM, context)
         return self._overviews.upsert(repo.id, data)
 
     async def _build_context(self, repo: RepositoryModel, token: str | None) -> str:

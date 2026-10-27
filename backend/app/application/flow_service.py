@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.domain.enums import EdgeKind, NodeKind
 from app.infrastructure.db.models import GraphNodeModel, RepositoryModel
 from app.infrastructure.db.repositories import GraphRepository
-from app.infrastructure.llm.openai_chat import OpenAIChat
+from app.infrastructure.llm import ChatModel, make_chat
 
 # Directory names that hold HTTP route handlers. Matched as whole path segments:
 # a substring match would treat `.../add_overviews_table.py` as a "views" file.
@@ -91,7 +91,7 @@ class FlowExplanation:
 
 
 class FlowService:
-    def __init__(self, session: Session, chat: OpenAIChat | None = None) -> None:
+    def __init__(self, session: Session, chat: ChatModel | None = None) -> None:
         self._graph = GraphRepository(session)
         self._chat = chat
 
@@ -183,7 +183,7 @@ class FlowService:
             indent = "  " * step.depth
             lines.append(f"{index + 1}. {indent}{step.name}  [{step.path}]  key={step.key}")
 
-        chat = self._chat or OpenAIChat()
+        chat = self._chat or make_chat()
         data = chat.complete_json(_EXPLAIN_SYSTEM, "\n".join(lines))
 
         valid = {step.key for step in flow.steps}

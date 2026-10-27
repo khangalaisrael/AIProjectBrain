@@ -38,7 +38,15 @@ export function ImportPanel({ imported }: ImportPanelProps) {
   const search = useSearchGitHubRepositories(tab === "public" ? debouncedQuery : "");
   const importMutation = useImportRepository();
 
-  const importedNames = useMemo(() => new Set(imported.map((r) => r.full_name)), [imported]);
+  // A failed import isn't "done": its row offers a retry, which re-queues indexing.
+  const importedNames = useMemo(
+    () => new Set(imported.filter((r) => r.status !== "failed").map((r) => r.full_name)),
+    [imported],
+  );
+  const failedNames = useMemo(
+    () => new Set(imported.filter((r) => r.status === "failed").map((r) => r.full_name)),
+    [imported],
+  );
 
   // In "mine" the query filters locally; in "public" it queries GitHub.
   const results = useMemo(() => {
@@ -106,6 +114,7 @@ export function ImportPanel({ imported }: ImportPanelProps) {
               key={repo.github_id}
               repo={repo}
               alreadyImported={importedNames.has(repo.full_name)}
+              failed={failedNames.has(repo.full_name)}
               onImport={() => importMutation.mutate(repo.full_name)}
               pending={importMutation.isPending && importMutation.variables === repo.full_name}
             />
@@ -144,11 +153,12 @@ function TabButton({
 interface ImportRowProps {
   repo: GitHubRepo;
   alreadyImported: boolean;
+  failed: boolean;
   onImport: () => void;
   pending: boolean;
 }
 
-function ImportRow({ repo, alreadyImported, onImport, pending }: ImportRowProps) {
+function ImportRow({ repo, alreadyImported, failed, onImport, pending }: ImportRowProps) {
   return (
     <Card className="flex items-center justify-between gap-4 p-3">
       <div className="min-w-0">
@@ -173,7 +183,7 @@ function ImportRow({ repo, alreadyImported, onImport, pending }: ImportRowProps)
       ) : (
         <Button size="sm" variant="outline" onClick={onImport} disabled={pending}>
           {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
-          Import
+          {failed ? "Retry" : "Import"}
         </Button>
       )}
     </Card>
