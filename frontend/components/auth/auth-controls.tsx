@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Github, LogOut } from "lucide-react";
+import { Github, Loader2, LogOut } from "lucide-react";
 
 import { GITHUB_LOGIN_URL } from "@/lib/api";
 import { useAuth } from "@/lib/hooks";
@@ -13,10 +14,26 @@ export function signInWithGitHub() {
 }
 
 export function SignInButton() {
+  const [pending, setPending] = useState(false);
+
+  // Coming back via the browser's back button restores the page from cache,
+  // spinner and all, so clear it.
+  useEffect(() => {
+    const reset = () => setPending(false);
+    window.addEventListener("pageshow", reset);
+    return () => window.removeEventListener("pageshow", reset);
+  }, []);
+
   return (
-    <Button onClick={signInWithGitHub}>
-      <Github className="size-4" />
-      Sign in with GitHub
+    <Button
+      disabled={pending}
+      onClick={() => {
+        setPending(true);
+        signInWithGitHub();
+      }}
+    >
+      {pending ? <Loader2 className="size-4 animate-spin" /> : <Github className="size-4" />}
+      {pending ? "Signing in…" : "Sign in with GitHub"}
     </Button>
   );
 }
