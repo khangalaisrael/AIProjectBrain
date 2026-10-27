@@ -9,15 +9,22 @@ import { cn } from "@/lib/utils";
 
 interface SidebarProps {
   collapsed: boolean;
+  /** Phones only: the sidebar is a drawer that slides over the page. */
+  mobileOpen: boolean;
+  onNavigate: () => void;
 }
 
-export function Sidebar({ collapsed }: SidebarProps) {
+export function Sidebar({ collapsed: desktopCollapsed, mobileOpen, onNavigate }: SidebarProps) {
   const pathname = usePathname();
+  // The drawer is always full width; collapsing only applies on desktop.
+  const collapsed = desktopCollapsed && !mobileOpen;
 
   return (
     <aside
       className={cn(
         "border-border bg-sidebar flex h-full flex-col border-r transition-all duration-200",
+        "fixed inset-y-0 left-0 z-40 md:static md:translate-x-0",
+        mobileOpen ? "translate-x-0" : "-translate-x-full",
         collapsed ? "w-16" : "w-60",
       )}
     >
@@ -35,6 +42,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
               key={item.href}
               href={item.href}
               title={item.label}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                 active

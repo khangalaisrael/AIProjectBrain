@@ -12,7 +12,7 @@ interface TopNavProps {
 
 export function TopNav({ onToggleSidebar }: TopNavProps) {
   return (
-    <header className="border-border flex h-14 items-center gap-4 border-b px-4">
+    <header className="border-border flex h-14 items-center gap-2 border-b px-2 sm:gap-4 sm:px-4">
       <Button variant="ghost" size="icon" onClick={onToggleSidebar} aria-label="Toggle sidebar">
         <PanelLeft className="size-4" />
       </Button>
@@ -24,7 +24,7 @@ export function TopNav({ onToggleSidebar }: TopNavProps) {
       >
         <Search className="size-4" />
         <span>Search…</span>
-        <kbd className="border-border ml-auto rounded border px-1.5 text-xs">Ctrl K</kbd>
+        <kbd className="border-border ml-auto hidden rounded border sm:inline px-1.5 text-xs">Ctrl K</kbd>
       </button>
 
       <div className="ml-auto">
