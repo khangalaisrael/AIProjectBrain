@@ -66,7 +66,7 @@ export default function DeveloperThinkingPage() {
 
   return (
     <>
-      <div className="mb-6 flex items-center justify-between gap-4">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <PageHeader
           title="Developer Thinking"
           description="The engineering decisions behind the project, and why."

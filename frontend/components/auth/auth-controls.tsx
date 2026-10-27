@@ -45,8 +45,9 @@ export function AuthControls() {
     return <div className="bg-muted size-8 animate-pulse rounded-full" />;
   }
 
+  // Signed-out pages show their own sign-in button, so the top bar stays empty.
   if (!isAuthenticated) {
-    return <SignInButton />;
+    return null;
   }
 
   return (

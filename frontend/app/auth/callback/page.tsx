@@ -25,7 +25,7 @@ export default function AuthCallbackPage() {
   }, [router, setToken]);
 
   return (
-    <div className="flex h-screen flex-col items-center justify-center gap-3 text-sm">
+    <div className="flex h-dvh flex-col items-center justify-center gap-3 text-sm">
       {error ? (
         <p className="text-muted-foreground">
           Sign-in failed. Please{" "}
