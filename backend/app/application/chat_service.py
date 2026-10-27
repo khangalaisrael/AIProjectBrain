@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from app.core.config import get_settings
 from app.infrastructure.embeddings.openai_embedder import OpenAIEmbedder
-from app.infrastructure.llm.openai_chat import OpenAIChat
+from app.infrastructure.llm import ChatModel, make_chat
 from app.infrastructure.vector.qdrant_store import QdrantVectorStore
 
 _SYSTEM_PROMPT = (
@@ -54,7 +54,7 @@ class ChatService:
     """RAG over a repository's indexed code.
 
     The AI clients are built on first use, not in ``__init__``. Constructing
-    ``OpenAIChat`` demands an API key, and the service is now resolved as a
+    the chat client demands an API key, and the service is now resolved as a
     FastAPI dependency — which happens *before* the route can decide the
     repository doesn't exist. A 404 must not require credentials.
     """
@@ -63,7 +63,7 @@ class ChatService:
         self,
         embedder: OpenAIEmbedder | None = None,
         store: QdrantVectorStore | None = None,
-        chat: OpenAIChat | None = None,
+        chat: ChatModel | None = None,
     ) -> None:
         self._embedder_or_none = embedder
         self._store_or_none = store
@@ -82,9 +82,9 @@ class ChatService:
         return self._store_or_none
 
     @property
-    def _chat(self) -> OpenAIChat:
+    def _chat(self) -> ChatModel:
         if self._chat_or_none is None:
-            self._chat_or_none = OpenAIChat()
+            self._chat_or_none = make_chat()
         return self._chat_or_none
 
     def _retrieve(self, repository_id: int, question: str):

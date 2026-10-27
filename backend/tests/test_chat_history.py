@@ -232,7 +232,7 @@ def test_a_404_does_not_require_ai_credentials(client, auth_headers, monkeypatch
     """Resolving the chat dependency must not build an OpenAI client.
 
     The service is a FastAPI dependency, so it is constructed before the route
-    can decide the repository doesn't exist. Eagerly building OpenAIChat there
+    can decide the repository doesn't exist. Eagerly building the chat client there
     turned every 404 into a 500 on any machine without an API key -- which is
     every CI machine.
     """

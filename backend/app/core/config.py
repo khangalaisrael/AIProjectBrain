@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -58,10 +58,14 @@ class Settings(BaseSettings):
     #              print(Fernet.generate_key().decode())"
     token_encryption_key: str = ""
 
-    # AI (OpenAI) — one key powers both chat and embeddings
+    # AI — chat runs on Claude by default; embeddings always use OpenAI
+    # (Anthropic has no embeddings API). Set LLM_PROVIDER=openai to chat on GPT.
+    anthropic_api_key: str = ""
     openai_api_key: str = ""
-    llm_provider: str = "openai"
-    llm_model: str = "gpt-4o"
+    llm_provider: str = "anthropic"
+    llm_model: str = "claude-opus-5-5"
+    # Claude reasoning depth: low | medium | high | xhigh | max
+    llm_effort: str = "low"
     embedding_provider: str = "openai"
     embedding_model: str = "text-embedding-3-small"
     # text-embedding-3-small returns 1536-dim vectors
@@ -75,6 +79,20 @@ class Settings(BaseSettings):
 
     # API metadata
     api_v1_prefix: str = Field(default="/api/v1")
+
+    @field_validator("database_url")
+    @classmethod
+    def _use_psycopg_driver(cls, value: str) -> str:
+        """Pin bare Postgres URLs to psycopg 3.
+
+        Hosted providers (e.g. Neon via Vercel) hand out ``postgres://`` or
+        ``postgresql://`` URLs, which SQLAlchemy would map to psycopg2 — a driver
+        this project doesn't install.
+        """
+        for scheme in ("postgres://", "postgresql://"):
+            if value.startswith(scheme):
+                return "postgresql+psycopg://" + value[len(scheme) :]
+        return value
 
     @property
     def cors_origins(self) -> list[str]:

@@ -197,7 +197,7 @@ class FakeChat:
 
 
 def test_explain_narrates_steps_and_drops_unknown_keys(client, auth_headers, repo_id, monkeypatch):
-    monkeypatch.setattr("app.application.flow_service.OpenAIChat", lambda: FakeChat())
+    monkeypatch.setattr("app.application.flow_service.make_chat", lambda: FakeChat())
     resp = client.post(
         f"/api/v1/repositories/{repo_id}/flows/explain",
         params={"key": "f:login"},

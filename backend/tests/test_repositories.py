@@ -85,6 +85,24 @@ def test_import_is_idempotent(client, auth_headers, mock_github, enqueued):
     assert len(enqueued) == 1  # only queued on first import
 
 
+def test_reimporting_a_failed_repo_queues_it_again(
+    client, auth_headers, mock_github, enqueued, db_session
+):
+    from app.domain.enums import ImportStatus
+    from app.infrastructure.db.repositories import RepositoryRepository
+
+    first = client.post(
+        "/api/v1/repositories", headers=auth_headers, json={"full_name": "octocat/demo"}
+    ).json()
+    RepositoryRepository(db_session).set_status(first["id"], ImportStatus.FAILED, "boom")
+
+    again = client.post(
+        "/api/v1/repositories", headers=auth_headers, json={"full_name": "octocat/demo"}
+    )
+    assert again.json()["status"] == "pending"
+    assert enqueued == [first["id"], first["id"]]
+
+
 def test_list_imported_repositories(client, auth_headers, mock_github, enqueued):
     client.post("/api/v1/repositories", headers=auth_headers, json={"full_name": "octocat/demo"})
     response = client.get("/api/v1/repositories", headers=auth_headers)

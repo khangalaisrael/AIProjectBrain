@@ -14,11 +14,21 @@ from qdrant_client.models import (
     FieldCondition,
     Filter,
     MatchValue,
+    PayloadSchemaType,
     PointStruct,
     VectorParams,
 )
 
 from app.core.config import get_settings
+
+# Collections already given their payload index in this process. Qdrant Cloud
+# rejects filters on unindexed fields, and creating the index is idempotent, so
+# one call per process covers collections that predate it.
+_indexed: set[str] = set()
+
+# Points per upsert request. A 1536-dim vector is ~30 KB as JSON, so this keeps
+# each request around 5 MB, well under Qdrant Cloud's 32 MB body limit.
+_UPSERT_BATCH = 128
 
 
 @dataclass(slots=True)
@@ -44,19 +54,27 @@ class QdrantVectorStore:
                 collection_name=self._collection,
                 vectors_config=VectorParams(size=self._dim, distance=Distance.COSINE),
             )
+        if self._collection not in _indexed:
+            self._client.create_payload_index(
+                collection_name=self._collection,
+                field_name="repository_id",
+                field_schema=PayloadSchemaType.INTEGER,
+            )
+            _indexed.add(self._collection)
 
     def upsert(self, points: list[tuple[int, list[float], dict]]) -> None:
         """Upsert (id, vector, payload) tuples."""
         if not points:
             return
         self.ensure_collection()
-        self._client.upsert(
-            collection_name=self._collection,
-            points=[
-                PointStruct(id=point_id, vector=vector, payload=payload)
-                for point_id, vector, payload in points
-            ],
-        )
+        for start in range(0, len(points), _UPSERT_BATCH):
+            self._client.upsert(
+                collection_name=self._collection,
+                points=[
+                    PointStruct(id=point_id, vector=vector, payload=payload)
+                    for point_id, vector, payload in points[start : start + _UPSERT_BATCH]
+                ],
+            )
 
     def search(self, vector: list[float], repository_id: int, limit: int) -> list[SearchHit]:
         """Nearest chunks within a single repository."""

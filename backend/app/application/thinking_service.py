@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.infrastructure.db.models import DecisionModel, RepositoryModel
 from app.infrastructure.db.repositories import DecisionRepository, FileRepository
 from app.infrastructure.github.client import GitHubClient, GitHubError
-from app.infrastructure.llm.openai_chat import OpenAIChat
+from app.infrastructure.llm import ChatModel, make_chat
 
 _README_CANDIDATES = ["README.md", "readme.md", "README.rst", "README.txt", "README"]
 
@@ -45,7 +45,7 @@ class ThinkingService:
         self,
         session: Session,
         github: GitHubClient | None = None,
-        chat: OpenAIChat | None = None,
+        chat: ChatModel | None = None,
     ) -> None:
         self._files = FileRepository(session)
         self._decisions = DecisionRepository(session)
@@ -57,7 +57,7 @@ class ThinkingService:
 
     async def generate(self, repo: RepositoryModel, token: str | None) -> list[DecisionModel]:
         context = await self._build_context(repo, token)
-        data = (self._chat or OpenAIChat()).complete_json(_SYSTEM, context)
+        data = (self._chat or make_chat()).complete_json(_SYSTEM, context)
         decisions = data.get("decisions") if isinstance(data, dict) else None
         if not isinstance(decisions, list):
             decisions = []

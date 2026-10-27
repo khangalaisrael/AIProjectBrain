@@ -10,7 +10,7 @@ from app.domain.enums import DocType
 from app.infrastructure.db.models import DocumentModel, RepositoryModel
 from app.infrastructure.db.repositories import DocumentRepository, FileRepository
 from app.infrastructure.github.client import GitHubClient, GitHubError
-from app.infrastructure.llm.openai_chat import OpenAIChat
+from app.infrastructure.llm import ChatModel, make_chat
 
 _README_CANDIDATES = ["README.md", "readme.md", "README.rst", "README.txt", "README"]
 
@@ -71,7 +71,7 @@ class DocsService:
         self,
         session: Session,
         github: GitHubClient | None = None,
-        chat: OpenAIChat | None = None,
+        chat: ChatModel | None = None,
     ) -> None:
         self._files = FileRepository(session)
         self._documents = DocumentRepository(session)
@@ -86,7 +86,7 @@ class DocsService:
     ) -> DocumentModel:
         context = await self._build_context(repo, doc_type, token)
         system = f"{_BASE_SYSTEM}\n\n{_INSTRUCTIONS[doc_type]}"
-        content = (self._chat or OpenAIChat()).complete(system, context)
+        content = (self._chat or make_chat()).complete(system, context)
         return self._documents.upsert(repo.id, doc_type.value, _TITLES[doc_type], content)
 
     async def _build_context(

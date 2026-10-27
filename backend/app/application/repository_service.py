@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 from sqlalchemy.orm import Session
 
+from app.domain.enums import ImportStatus
 from app.infrastructure.db.models import RepositoryModel, UserModel
 from app.infrastructure.db.repositories import RepositoryRepository
 from app.infrastructure.github.client import GitHubClient
@@ -42,12 +43,16 @@ class RepositoryService:
     async def import_repository(self, user: UserModel, full_name: str) -> RepositoryModel:
         """Import a repository by ``owner/name`` and queue it for indexing.
 
-        Idempotent: re-importing an existing repo returns the existing record.
+        Idempotent: re-importing an existing repo returns the existing record,
+        except that one whose last indexing run failed is queued again.
         """
         repo = await self._github.get_repository(user.access_token or "", full_name)
 
         existing = self._repos.get_for_user_by_github_id(user.id, repo["id"])
         if existing is not None:
+            if existing.status == ImportStatus.FAILED:
+                self._repos.set_status(existing.id, ImportStatus.PENDING, error_message=None)
+                self._enqueue_index(existing.id)
             return existing
 
         model = self._repos.create_from_github(user.id, repo)
