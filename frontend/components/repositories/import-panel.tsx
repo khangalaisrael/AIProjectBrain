@@ -108,7 +108,7 @@ export function ImportPanel({ imported }: ImportPanelProps) {
           No repositories found.
         </Card>
       ) : (
-        <div className="grid max-h-[28rem] gap-2 overflow-y-auto pr-1">
+        <div className="grid max-h-[28rem] grid-cols-1 gap-2 overflow-y-auto pr-1">
           {results.map((repo) => (
             <ImportRow
               key={repo.github_id}
