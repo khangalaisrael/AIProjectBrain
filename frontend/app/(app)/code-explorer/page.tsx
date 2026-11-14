@@ -20,8 +20,16 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResizeHandle } from "@/components/ui/resize-handle";
 import { SignInButton } from "@/components/auth/auth-controls";
-import { CodeViewer } from "@/components/explorer/code-viewer";
-import { FileChat } from "@/components/explorer/file-chat";
+import dynamic from "next/dynamic";
+
+// Syntax highlighting and chat only matter once a file is open.
+const CodeViewer = dynamic(
+  () => import("@/components/explorer/code-viewer").then((m) => m.CodeViewer),
+  { ssr: false, loading: () => <Skeleton className="m-3 h-40" /> },
+);
+const FileChat = dynamic(() => import("@/components/explorer/file-chat").then((m) => m.FileChat), {
+  ssr: false,
+});
 import { FileTree } from "@/components/explorer/file-tree";
 import { Markdown } from "@/components/chat/markdown";
 

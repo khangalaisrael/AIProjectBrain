@@ -10,8 +10,19 @@ import { useCommandPaletteStore } from "@/lib/command-palette-store";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SignInButton } from "@/components/auth/auth-controls";
-import { AtlasCanvas } from "@/components/atlas/atlas-canvas";
-import { FlowCanvas } from "@/components/atlas/flow-canvas";
+import dynamic from "next/dynamic";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// React Flow and the layout engine are the heaviest code in the app; load on demand.
+const canvasLoading = () => <Skeleton className="h-full min-h-[20rem] w-full rounded-lg" />;
+const AtlasCanvas = dynamic(
+  () => import("@/components/atlas/atlas-canvas").then((m) => m.AtlasCanvas),
+  { ssr: false, loading: canvasLoading },
+);
+const FlowCanvas = dynamic(
+  () => import("@/components/atlas/flow-canvas").then((m) => m.FlowCanvas),
+  { ssr: false, loading: canvasLoading },
+);
 import { cn } from "@/lib/utils";
 
 // Architecture explores the graph; Request Flow replays a path through it.
