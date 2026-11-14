@@ -66,7 +66,7 @@ export default function DeveloperThinkingPage() {
 
   return (
     <>
-      <div className="mb-6 flex items-center justify-between gap-4">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <PageHeader
           title="Developer Thinking"
           description="The engineering decisions behind the project, and why."
@@ -75,7 +75,7 @@ export default function DeveloperThinkingPage() {
           <select
             value={repositoryId ?? ""}
             onChange={(e) => setRepositoryId(Number(e.target.value))}
-            className="border-border bg-background text-foreground h-9 rounded-md border px-2 text-sm"
+            className="border-border bg-background text-foreground h-9 max-w-full min-w-0 rounded-md border px-2 text-sm"
           >
             {readyRepos.map((r) => (
               <option key={r.id} value={r.id}>

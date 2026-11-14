@@ -37,13 +37,13 @@ export default function RepositoriesPage() {
         description="Import a repository to analyze, or review ones you've already imported."
       />
 
-      <div className="grid gap-8 lg:grid-cols-2">
-        <section>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        <section className="min-w-0">
           <h2 className="mb-3 text-sm font-semibold">Import from GitHub</h2>
           <ImportPanel imported={imported ?? []} />
         </section>
 
-        <section>
+        <section className="min-w-0">
           <h2 className="mb-3 text-sm font-semibold">Imported</h2>
           {isLoading ? (
             <p className="text-muted-foreground text-sm">Loading…</p>

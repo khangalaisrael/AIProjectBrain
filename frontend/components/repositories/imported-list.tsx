@@ -8,7 +8,7 @@ import { StatusBadge } from "@/components/repositories/status-badge";
 
 export function ImportedList({ repositories }: { repositories: Repository[] }) {
   return (
-    <div className="grid gap-3">
+    <div className="grid grid-cols-1 gap-3">
       {repositories.map((repo) => (
         <Card key={repo.id} className="flex items-center justify-between gap-4 p-4">
           <div className="flex min-w-0 items-start gap-3">

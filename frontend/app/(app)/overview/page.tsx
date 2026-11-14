@@ -77,13 +77,13 @@ export default function OverviewPage() {
 
   return (
     <>
-      <div className="mb-6 flex items-center justify-between gap-4">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <PageHeader title="Overview" description="A high-level summary of the project." />
         <div className="flex items-center gap-2">
           <select
             value={repositoryId ?? ""}
             onChange={(e) => setRepositoryId(Number(e.target.value))}
-            className="border-border bg-background text-foreground h-9 rounded-md border px-2 text-sm"
+            className="border-border bg-background text-foreground h-9 max-w-full min-w-0 rounded-md border px-2 text-sm"
           >
             {readyRepos.map((r) => (
               <option key={r.id} value={r.id}>
