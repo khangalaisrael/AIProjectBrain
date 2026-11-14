@@ -22,7 +22,7 @@ export const EDGE_TONE: Record<string, string> = {
   implements: "#a78bfa",
 };
 
-const ACCENT = "#3b82f6";
+const ACCENT = "#2dd4bf";
 
 /**
  * A thin curved connection between Software Cards. Active paths glow accent

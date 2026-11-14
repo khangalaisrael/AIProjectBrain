@@ -13,15 +13,17 @@
   --card-foreground: #09090b;
   --border: #e4e4e7;
   --input: #e4e4e7;
-  --ring: #3b82f6;
-  --accent: #2563eb;
+  --ring: #14b8a6;
+  --accent: #0f766e;
+  --hl: #fb7185;
+  --hl-soft: rgb(251 113 133 / 0.3);
   --accent-foreground: #ffffff;
   --sidebar: #fafafa;
   --radius: 0.625rem;
   --radius-card: 1.125rem;
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.08), 0 4px 16px -4px rgb(0 0 0 / 0.1);
   --shadow-card-hover: 0 2px 4px rgb(0 0 0 / 0.08), 0 12px 32px -8px rgb(0 0 0 / 0.14);
-  --shadow-glow: 0 0 0 1px rgb(37 99 235 / 0.4), 0 0 24px -4px rgb(37 99 235 / 0.25);
+  --shadow-glow: 0 0 0 1px rgb(15 118 110 / 0.45), 0 0 24px -4px rgb(20 184 166 / 0.3);
   --atlas-dot: #e4e4e7;
 }
 
@@ -34,13 +36,15 @@
   --card-foreground: #fafafa;
   --border: #27272a;
   --input: #27272a;
-  --ring: #3b82f6;
-  --accent: #3b82f6;
-  --accent-foreground: #ffffff;
+  --ring: #2dd4bf;
+  --accent: #2dd4bf;
+  --hl: #fb7185;
+  --hl-soft: rgb(251 113 133 / 0.5);
+  --accent-foreground: #042f2e;
   --sidebar: #0c0c0f;
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 16px -4px rgb(0 0 0 / 0.5);
   --shadow-card-hover: 0 2px 4px rgb(0 0 0 / 0.4), 0 12px 32px -8px rgb(0 0 0 / 0.6);
-  --shadow-glow: 0 0 0 1px rgb(59 130 246 / 0.5), 0 0 24px -4px rgb(59 130 246 / 0.35);
+  --shadow-glow: 0 0 0 1px rgb(45 212 191 / 0.5), 0 0 24px -4px rgb(45 212 191 / 0.35);
   --atlas-dot: #1c1c20;
 }
 

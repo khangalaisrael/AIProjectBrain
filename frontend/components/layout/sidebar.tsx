@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Brain } from "lucide-react";
+import { LogoMark } from "@/components/brand/logo";
 
 import { navItems } from "@/lib/nav";
 import { cn } from "@/lib/utils";
@@ -27,7 +27,7 @@ export function Sidebar({ collapsed, mobileOpen = false, onNavigate }: SidebarPr
       )}
     >
       <div className="flex h-14 items-center gap-2 px-4">
-        <Brain className="text-accent size-6 shrink-0" />
+        <LogoMark className="size-7" />
         <span className={cn("text-sm font-semibold", collapsed && "lg:hidden")}>Project Brain</span>
       </div>
 

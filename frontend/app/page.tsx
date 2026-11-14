@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import { LogoMark } from "@/components/brand/logo";
 import { useAuth } from "@/lib/hooks";
 import { SignInButton } from "@/components/auth/auth-controls";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
@@ -72,9 +73,7 @@ export default function Home() {
       <header className="border-border/60 bg-background/80 sticky top-0 z-30 border-b backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2 font-semibold">
-            <span className="bg-accent text-accent-foreground flex size-7 items-center justify-center rounded-lg">
-              <Brain className="size-4" />
-            </span>
+            <LogoMark className="size-8" />
             <span className="hidden sm:inline">AI Project Brain</span>
             <span className="sm:hidden">Project Brain</span>
           </Link>
@@ -106,7 +105,7 @@ export default function Home() {
             </span>
             <h1 className="mt-5 text-4xl leading-tight font-semibold tracking-tight text-balance sm:text-6xl">
               Turn any codebase into a course you can{" "}
-              <span className="text-accent">actually follow</span>
+              <span className="px-1 [box-decoration-break:clone]" style={{ backgroundImage: "linear-gradient(transparent 60%, var(--hl-soft) 60%, var(--hl-soft) 92%, transparent 92%)" }}>actually follow</span>
             </h1>
             <p className="text-muted-foreground mx-auto mt-5 max-w-2xl text-base text-pretty sm:text-lg">
               Import a GitHub repository and learn how it works through guided lessons, an
