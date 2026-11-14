@@ -181,7 +181,7 @@ export function ChatDock() {
         <button
           onClick={() => setOpen(true)}
           aria-label="Open AI chat"
-          className="bg-accent text-accent-foreground fixed right-6 bottom-6 z-40 flex size-12 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105"
+          className="bg-accent text-accent-foreground fixed right-4 bottom-4 z-30 flex size-12 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 sm:right-6 sm:bottom-6"
         >
           <MessageSquare className="size-5" />
         </button>
@@ -201,7 +201,7 @@ export function ChatDock() {
             <ResizeHandle
               {...panel.separatorProps}
               isDragging={panel.isDragging}
-              className="absolute inset-y-0 -left-1 z-10"
+              className="absolute inset-y-0 -left-1 z-10 hidden sm:block"
             />
 
             {/* Header */}

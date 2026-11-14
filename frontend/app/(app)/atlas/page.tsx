@@ -108,13 +108,13 @@ export default function AtlasPage() {
   const hasGraph = (graph.data?.nodes.length ?? 0) > 0 && rootKey;
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col">
+    <div className="flex flex-col lg:h-[calc(100dvh-8rem)]">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <PageHeader title="Atlas" description="An explorable map of the software." />
         <select
           value={repositoryId ?? ""}
           onChange={(e) => setRepositoryId(Number(e.target.value))}
-          className="border-border bg-background text-foreground h-9 rounded-md border px-2 text-sm"
+          className="border-border bg-background text-foreground h-9 max-w-full min-w-0 rounded-md border px-2 text-sm"
         >
           {readyRepos.map((r) => (
             <option key={r.id} value={r.id}>
@@ -150,16 +150,23 @@ export default function AtlasPage() {
           <button
             type="button"
             onClick={() => setPaletteOpen(true)}
-            className="border-border bg-muted/40 text-muted-foreground hover:bg-muted flex h-9 w-64 items-center gap-2 rounded-full border px-4 text-sm transition-colors"
+            className="border-border bg-muted/40 text-muted-foreground hover:bg-muted flex h-9 w-full items-center gap-2 rounded-full border px-4 text-sm transition-colors sm:w-64"
           >
             <Search className="size-4" />
             <span>Search the map…</span>
-            <kbd className="border-border ml-auto rounded border px-1.5 text-xs">Ctrl K</kbd>
+            <kbd className="border-border ml-auto hidden rounded border px-1.5 text-xs sm:inline">
+              Ctrl K
+            </kbd>
           </button>
         )}
       </div>
 
-      <div className="min-h-0 flex-1">
+      <div
+        className={cn(
+          "min-h-0 lg:h-auto lg:flex-1",
+          mode === "request" ? "h-[130dvh]" : "h-[70dvh]",
+        )}
+      >
         {graph.isLoading ? (
           <div className="border-border/70 bg-card/60 text-muted-foreground mx-auto mt-16 flex w-fit items-center gap-2 rounded-full border px-4 py-2 text-sm backdrop-blur">
             <MapIcon className="size-4 animate-pulse" /> Mapping the repository…

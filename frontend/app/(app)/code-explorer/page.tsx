@@ -88,13 +88,13 @@ export default function CodeExplorerPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col">
-      <div className="mb-4 flex items-center justify-between gap-4">
+    <div className="flex flex-col lg:h-[calc(100dvh-8rem)]">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 sm:gap-4">
         <PageHeader title="Code Explorer" description="Browse files and functions with AI help." />
         <select
           value={repositoryId ?? ""}
           onChange={(e) => setRepositoryId(Number(e.target.value))}
-          className="border-border bg-background text-foreground h-9 rounded-md border px-2 text-sm"
+          className="border-border bg-background text-foreground h-9 max-w-full min-w-0 rounded-md border px-2 text-sm"
         >
           {readyRepos.map((r) => (
             <option key={r.id} value={r.id}>
@@ -104,11 +104,11 @@ export default function CodeExplorerPage() {
         </select>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row lg:gap-0">
+      <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:flex-row lg:gap-0">
         {/* File tree */}
         <div
           style={{ "--panel-w": `${tree.width}px` } as React.CSSProperties}
-          className="border-border min-h-0 w-full shrink-0 overflow-y-auto rounded-lg border lg:w-[var(--panel-w)]"
+          className="border-border max-h-72 min-h-0 w-full shrink-0 overflow-y-auto rounded-lg border lg:max-h-none lg:w-[var(--panel-w)]"
         >
           <div className="text-muted-foreground border-border bg-background sticky top-0 border-b px-3 py-2 text-xs font-medium">
             Files {files ? `(${files.length})` : ""}
@@ -127,7 +127,7 @@ export default function CodeExplorerPage() {
         />
 
         {/* Code viewer */}
-        <div className="border-border flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border">
+        <div className="border-border flex h-[60dvh] min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border lg:h-auto lg:flex-1">
           {file ? (
             <>
               <div className="border-border bg-background text-muted-foreground border-b px-3 py-2 font-mono text-xs">
@@ -153,7 +153,7 @@ export default function CodeExplorerPage() {
         {/* Functions + AI explanation */}
         <div
           style={{ "--panel-w": `${aside.width}px` } as React.CSSProperties}
-          className="border-border flex min-h-0 w-full shrink-0 flex-col overflow-hidden rounded-lg border lg:w-[var(--panel-w)]"
+          className="border-border flex h-[60dvh] min-h-0 w-full shrink-0 flex-col overflow-hidden rounded-lg border lg:h-auto lg:w-[var(--panel-w)]"
         >
           <div className="border-border flex shrink-0 items-center gap-1 border-b p-2">
             {(["explain", "ask"] as const).map((mode) => (

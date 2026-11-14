@@ -436,7 +436,7 @@ export function AtlasCanvas({
       className="border-border rounded-card relative h-full w-full overflow-hidden border outline-none"
     >
       {/* Breadcrumb — the way back out of the map. */}
-      <nav className="border-border/70 bg-card/80 shadow-card absolute top-4 left-4 z-10 flex items-center gap-1 rounded-full border px-4 py-2 text-xs backdrop-blur">
+      <nav className="border-border/70 bg-card/80 shadow-card absolute top-4 left-4 z-10 flex max-w-[calc(100%-2rem)] items-center gap-1 overflow-x-auto rounded-full border px-4 py-2 text-xs backdrop-blur">
         {breadcrumb.map((node, i) => {
           const isCurrent = i === breadcrumb.length - 1;
           const Icon = ICONS[node.kind];
@@ -468,7 +468,7 @@ export function AtlasCanvas({
       )}
 
       {emphasisEmpty && !settling && positioned.length > 0 && (
-        <p className="border-border/70 bg-card/80 text-muted-foreground absolute top-4 right-4 z-10 max-w-xs rounded-full border px-3 py-1.5 text-[11px] backdrop-blur">
+        <p className="border-border/70 bg-card/80 text-muted-foreground absolute top-16 left-4 z-10 max-w-[calc(100%-2rem)] rounded-2xl border px-3 py-1.5 text-[11px] backdrop-blur sm:top-4 sm:right-4 sm:left-auto sm:max-w-xs sm:rounded-full">
           {emphasisMeta === "has_models"
             ? "No database models live here. Dive in to find them."
             : "Nothing here imports anything else. Dive in to see dependencies."}

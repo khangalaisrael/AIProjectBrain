@@ -16,7 +16,8 @@ export function SignInButton() {
   return (
     <Button onClick={signInWithGitHub}>
       <Github className="size-4" />
-      Sign in with GitHub
+      <span className="hidden sm:inline">Sign in with GitHub</span>
+      <span className="sm:hidden">Sign in</span>
     </Button>
   );
 }

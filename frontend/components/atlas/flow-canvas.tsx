@@ -186,8 +186,8 @@ function FlowCanvasInner({ repositoryId }: FlowCanvasProps) {
   }
 
   return (
-    <div className="flex h-full min-h-0 gap-4">
-      <div className="border-border rounded-card relative min-w-0 flex-1 overflow-hidden border">
+    <div className="flex h-full min-h-0 flex-col gap-4 lg:flex-row">
+      <div className="border-border rounded-card relative min-h-[22rem] min-w-0 flex-1 overflow-hidden border">
         {/* Entry point picker + transport controls */}
         <div className="absolute inset-x-4 top-4 z-10 flex flex-wrap items-center gap-2">
           <select
@@ -293,7 +293,7 @@ function FlowCanvasInner({ repositoryId }: FlowCanvasProps) {
         explanation={explain.data}
         isExplaining={explain.isPending}
         onExplain={() => entryKey && explain.mutate({ repositoryId, key: entryKey })}
-        className="w-96 shrink-0"
+        className="max-h-[55%] w-full shrink-0 lg:max-h-none lg:w-96"
       />
     </div>
   );

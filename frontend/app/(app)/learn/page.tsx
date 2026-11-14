@@ -83,14 +83,14 @@ export default function LearnPage() {
   const active = data[activeIndex];
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col">
-      <div className="mb-4 flex items-center justify-between gap-4">
+    <div className="flex flex-col lg:h-[calc(100dvh-8rem)]">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 sm:gap-4">
         <PageHeader title="Learn" description="A structured course generated from the codebase." />
         <div className="flex items-center gap-2">
           <select
             value={repositoryId ?? ""}
             onChange={(e) => setRepositoryId(Number(e.target.value))}
-            className="border-border bg-background text-foreground h-9 rounded-md border px-2 text-sm"
+            className="border-border bg-background text-foreground h-9 max-w-full min-w-0 rounded-md border px-2 text-sm"
           >
             {readyRepos.map((r) => (
               <option key={r.id} value={r.id}>
@@ -141,11 +141,11 @@ export default function LearnPage() {
           }
         />
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row lg:gap-0">
+        <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:flex-row lg:gap-0">
           {/* Lesson navigation */}
           <nav
             style={{ "--panel-w": `${nav.width}px` } as React.CSSProperties}
-            className="border-border min-h-0 w-full shrink-0 overflow-y-auto rounded-lg border p-2 lg:w-[var(--panel-w)]"
+            className="border-border max-h-60 min-h-0 w-full shrink-0 overflow-y-auto rounded-lg border p-2 lg:max-h-none lg:w-[var(--panel-w)]"
           >
             <ol className="space-y-1">
               {data.map((lesson, i) => (
@@ -174,9 +174,9 @@ export default function LearnPage() {
           />
 
           {/* Lesson content */}
-          <article className="border-border min-h-0 min-w-0 flex-1 overflow-y-auto rounded-lg border">
+          <article className="border-border min-h-0 min-w-0 flex-1 rounded-lg border lg:overflow-y-auto">
             {active && (
-              <div className="mx-auto max-w-3xl px-6 py-6">
+              <div className="mx-auto max-w-3xl px-4 py-5 sm:px-6 sm:py-6">
                 <div className="border-border mb-4 border-b pb-4">
                   <p className="text-muted-foreground text-xs">
                     Lesson {activeIndex + 1} of {data.length}
