@@ -105,7 +105,8 @@ class FlowService:
             for node in nodes
             if node.kind == NodeKind.FUNCTION.value
             # A leading underscore marks a private helper, not a request entry.
-            and not node.name.startswith("_") and _is_route_file(node.path)
+            and not node.name.startswith("_")
+            and _is_route_file(node.path)
         ]
         if not handlers:
             return []

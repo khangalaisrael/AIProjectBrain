@@ -39,12 +39,16 @@ def test_mark_and_list_progress(client, auth_headers, db_session, user: UserMode
         )
         assert r.status_code == 204
     # Marking twice is harmless.
-    client.put(f"/api/v1/progress/lessons/{lessons[0].id}", json={"done": True}, headers=auth_headers)
+    client.put(
+        f"/api/v1/progress/lessons/{lessons[0].id}", json={"done": True}, headers=auth_headers
+    )
 
     done = client.get("/api/v1/progress", headers=auth_headers).json()["completed"]
     assert done == {str(repo.id): [lessons[0].id, lessons[1].id]}
 
-    client.put(f"/api/v1/progress/lessons/{lessons[0].id}", json={"done": False}, headers=auth_headers)
+    client.put(
+        f"/api/v1/progress/lessons/{lessons[0].id}", json={"done": False}, headers=auth_headers
+    )
     done = client.get("/api/v1/progress", headers=auth_headers).json()["completed"]
     assert done == {str(repo.id): [lessons[1].id]}
 
