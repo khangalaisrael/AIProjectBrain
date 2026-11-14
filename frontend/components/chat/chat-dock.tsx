@@ -44,6 +44,87 @@ function citationUrl(repo: RepoRef, c: Citation): string {
   return `https://github.com/${repo.fullName}/blob/${repo.branch}/${c.file_path}#L${c.start_line}-L${c.end_line}`;
 }
 
+const FAB_SIZE = 48;
+const FAB_KEY = "brain-chat-fab";
+
+/** The floating chat button. Drag it anywhere; a tap (no movement) opens the chat. */
+function ChatFab({ onOpen }: { onOpen: () => void }) {
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const drag = useRef<{ dx: number; dy: number; sx: number; sy: number; moved: boolean } | null>(
+    null,
+  );
+
+  const clamp = (x: number, y: number) => ({
+    x: Math.min(Math.max(8, x), window.innerWidth - FAB_SIZE - 8),
+    y: Math.min(Math.max(8, y), window.innerHeight - FAB_SIZE - 8),
+  });
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(FAB_KEY) ?? "null");
+      if (saved && typeof saved.x === "number" && typeof saved.y === "number") {
+        setPos(clamp(saved.x, saved.y));
+      }
+    } catch {}
+    const onResize = () => setPos((p) => (p ? clamp(p.x, p.y) : p));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const style: React.CSSProperties = pos ? { left: pos.x, top: pos.y } : { right: 16, bottom: 16 };
+
+  return (
+    <button
+      aria-label="Open AI chat (drag to move)"
+      title="Drag to move"
+      style={{ ...style, touchAction: "none" }}
+      className="bg-accent text-accent-foreground fixed z-30 flex size-12 cursor-grab items-center justify-center rounded-full shadow-lg select-none active:cursor-grabbing"
+      onPointerDown={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        drag.current = {
+          dx: e.clientX - rect.left,
+          dy: e.clientY - rect.top,
+          sx: e.clientX,
+          sy: e.clientY,
+          moved: false,
+        };
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+        const d = drag.current;
+        if (!d) return;
+        if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 6) return;
+        d.moved = true;
+        setPos(clamp(e.clientX - d.dx, e.clientY - d.dy));
+      }}
+      onPointerUp={(e) => {
+        const d = drag.current;
+        drag.current = null;
+        if (!d) return;
+        if (d.moved) {
+          const next = clamp(e.clientX - d.dx, e.clientY - d.dy);
+          try {
+            localStorage.setItem(FAB_KEY, JSON.stringify(next));
+          } catch {}
+        } else {
+          onOpen();
+        }
+      }}
+      onPointerCancel={() => {
+        drag.current = null;
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+    >
+      <MessageSquare className="size-5" />
+    </button>
+  );
+}
+
 export function ChatDock() {
   const { isAuthenticated } = useAuth();
   const { data: repositories } = useRepositories(isAuthenticated);
@@ -177,15 +258,7 @@ export function ChatDock() {
 
   return (
     <>
-      {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          aria-label="Open AI chat"
-          className="bg-accent text-accent-foreground fixed right-4 bottom-4 z-30 flex size-12 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 sm:right-6 sm:bottom-6"
-        >
-          <MessageSquare className="size-5" />
-        </button>
-      )}
+      {!open && <ChatFab onOpen={() => setOpen(true)} />}
 
       <AnimatePresence>
         {open && (

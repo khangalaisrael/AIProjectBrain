@@ -18,13 +18,11 @@ const INDENT = 12;
 
 export function FileTree({ files, selectedId, onSelect }: FileTreeProps) {
   const tree = useMemo(() => buildFileTree(files), [files]);
-  // Everything starts open, so the tree shows as much as the old flat list did.
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // Every folder starts closed; the user opens the ones they want.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  // A fresh repository resets nothing here on purpose — collapsing is cheap and
-  // per-session; the initial "all open" comes from the empty set above.
   const toggle = (path: string) =>
-    setCollapsed((prev) => {
+    setExpanded((prev) => {
       const next = new Set(prev);
       next.has(path) ? next.delete(path) : next.add(path);
       return next;
@@ -37,7 +35,7 @@ export function FileTree({ files, selectedId, onSelect }: FileTreeProps) {
           key={nodeKey(node)}
           node={node}
           depth={0}
-          collapsed={collapsed}
+          expanded={expanded}
           onToggle={toggle}
           selectedId={selectedId}
           onSelect={onSelect}
@@ -54,13 +52,13 @@ function nodeKey(node: TreeNode): string {
 interface TreeRowProps {
   node: TreeNode;
   depth: number;
-  collapsed: Set<string>;
+  expanded: Set<string>;
   onToggle: (path: string) => void;
   selectedId: number | null;
   onSelect: (id: number) => void;
 }
 
-function TreeRow({ node, depth, collapsed, onToggle, selectedId, onSelect }: TreeRowProps) {
+function TreeRow({ node, depth, expanded, onToggle, selectedId, onSelect }: TreeRowProps) {
   const pad = { paddingLeft: 8 + depth * INDENT };
 
   if (node.type === "file") {
@@ -90,7 +88,7 @@ function TreeRow({ node, depth, collapsed, onToggle, selectedId, onSelect }: Tre
     );
   }
 
-  const isOpen = !collapsed.has(node.path);
+  const isOpen = expanded.has(node.path);
   return (
     <li>
       <button
@@ -116,7 +114,7 @@ function TreeRow({ node, depth, collapsed, onToggle, selectedId, onSelect }: Tre
               key={nodeKey(child)}
               node={child}
               depth={depth + 1}
-              collapsed={collapsed}
+              expanded={expanded}
               onToggle={onToggle}
               selectedId={selectedId}
               onSelect={onSelect}
