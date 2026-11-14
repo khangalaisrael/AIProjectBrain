@@ -304,6 +304,15 @@ export interface Lesson {
 export const getLessons = (repositoryId: number) =>
   apiFetch<Lesson[]>(`/repositories/${repositoryId}/lessons`);
 
+export const getProgress = () =>
+  apiFetch<{ completed: Record<string, number[]> }>("/progress");
+
+export const setLessonProgress = (lessonId: number, done: boolean) =>
+  apiFetch<void>(`/progress/lessons/${lessonId}`, {
+    method: "PUT",
+    body: JSON.stringify({ done }),
+  });
+
 export const generateCourse = (repositoryId: number) =>
   apiFetch<Lesson[]>(`/repositories/${repositoryId}/lessons`, { method: "POST" });
 

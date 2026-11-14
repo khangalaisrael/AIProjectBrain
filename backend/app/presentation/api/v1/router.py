@@ -17,6 +17,7 @@ from app.presentation.api.v1 import (
     health,
     learn,
     overview,
+    progress,
     repositories,
     thinking,
 )
@@ -28,6 +29,7 @@ api_router.include_router(repositories.router)
 api_router.include_router(explorer.router)
 api_router.include_router(overview.router)
 api_router.include_router(learn.router)
+api_router.include_router(progress.router)
 api_router.include_router(thinking.router)
 api_router.include_router(docs.router)
 api_router.include_router(graph.router)

@@ -8,7 +8,10 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { TopNav } from "@/components/layout/topnav";
 import dynamic from "next/dynamic";
 
+import { ProgressSync } from "@/components/progress-sync";
+
 // Neither is needed for first paint, so load them after the page is interactive.
+
 const ChatDock = dynamic(() => import("@/components/chat/chat-dock").then((m) => m.ChatDock), {
   ssr: false,
 });
@@ -73,6 +76,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       <ChatDock />
       <CommandPalette />
+      <ProgressSync />
     </div>
   );
 }

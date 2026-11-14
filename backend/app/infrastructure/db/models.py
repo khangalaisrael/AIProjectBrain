@@ -275,3 +275,18 @@ class FileChatMessageModel(TimestampMixin, Base):
     )
     role: Mapped[str] = mapped_column(String(16), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class LessonProgressModel(TimestampMixin, Base):
+    """A lesson a user has marked complete (progress follows the account, not the device)."""
+
+    __tablename__ = "lesson_progress"
+    __table_args__ = (UniqueConstraint("user_id", "lesson_id", name="uq_progress_user_lesson"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    lesson_id: Mapped[int] = mapped_column(
+        ForeignKey("lessons.id", ondelete="CASCADE"), index=True, nullable=False
+    )

@@ -3,6 +3,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import { setLessonProgress } from "@/lib/api";
+import { getToken } from "@/lib/auth-store";
+
 interface ProgressState {
   /** Completed lesson ids, keyed by repository id. */
   done: Record<string, number[]>;
@@ -13,23 +16,28 @@ interface ProgressState {
   setDone: (repoId: number, lessonId: number, done: boolean) => void;
   setLastIndex: (repoId: number, index: number) => void;
   setLastRepo: (repoId: number) => void;
+  /** Replace completed lessons with the account's copy from the server. */
+  replaceDone: (done: Record<string, number[]>) => void;
 }
 
-/** Learning progress lives on the device: there's no backend field for it yet. */
+/** Progress is cached on the device and mirrored to the account when signed in. */
 export const useProgressStore = create<ProgressState>()(
   persist(
     (set) => ({
       done: {},
       lastIndex: {},
       lastRepoId: null,
-      setDone: (repoId, lessonId, done) =>
+      replaceDone: (done) => set({ done }),
+      setDone: (repoId, lessonId, done) => {
+        if (getToken()) void setLessonProgress(lessonId, done).catch(() => {});
         set((s) => {
           const key = String(repoId);
           const current = new Set(s.done[key] ?? []);
           if (done) current.add(lessonId);
           else current.delete(lessonId);
           return { done: { ...s.done, [key]: [...current] } };
-        }),
+        });
+      },
       setLastIndex: (repoId, index) =>
         set((s) => ({ lastIndex: { ...s.lastIndex, [String(repoId)]: index } })),
       setLastRepo: (repoId) => set({ lastRepoId: repoId }),
