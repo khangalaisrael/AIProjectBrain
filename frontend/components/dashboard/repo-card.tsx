@@ -14,6 +14,8 @@ import { StatusBadge } from "@/components/repositories/status-badge";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+const NO_IDS: number[] = [];
+
 const LANG_DOT: Record<string, string> = {
   Python: "bg-yellow-400",
   TypeScript: "bg-blue-500",
@@ -29,7 +31,7 @@ export function RepoCard({ repo }: { repo: Repository }) {
   const router = useRouter();
   const ready = repo.status === "ready";
   const lessons = useLessons(ready ? repo.id : null);
-  const done = useProgressStore((s) => s.done[String(repo.id)] ?? []);
+  const done = useProgressStore((s) => s.done[String(repo.id)] ?? NO_IDS);
   const lastIndex = useProgressStore((s) => s.lastIndex[String(repo.id)] ?? 0);
   const setLastRepo = useProgressStore((s) => s.setLastRepo);
 
