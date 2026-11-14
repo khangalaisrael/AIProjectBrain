@@ -3,8 +3,6 @@
 import { useMemo } from "react";
 import hljs from "highlight.js/lib/common";
 
-import "highlight.js/styles/github-dark.css";
-
 const LANG_MAP: Record<string, string> = {
   python: "python",
   javascript: "javascript",

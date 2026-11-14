@@ -4,6 +4,7 @@ import { Menu, PanelLeft, Search } from "lucide-react";
 
 import { AuthControls } from "@/components/auth/auth-controls";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { useCommandPaletteStore } from "@/lib/command-palette-store";
 
 interface TopNavProps {
@@ -45,7 +46,8 @@ export function TopNav({ onToggleSidebar, onOpenMenu }: TopNavProps) {
         </kbd>
       </button>
 
-      <div className="ml-auto shrink-0">
+      <div className="ml-auto flex shrink-0 items-center gap-1">
+        <ThemeToggle />
         <AuthControls />
       </div>
     </header>

@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   BookOpen,
+  Check,
+  CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -13,6 +16,10 @@ import {
 
 import { useAuth, useGenerateCourse, useLessons, useRepositories } from "@/lib/hooks";
 import { PANEL } from "@/lib/panel-size-store";
+import { useProgressStore } from "@/lib/progress-store";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { ProgressBar } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useResizable } from "@/lib/use-resizable";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -39,13 +46,33 @@ export default function LearnPage() {
     [repositories],
   );
 
-  useEffect(() => {
-    if (repositoryId === null && readyRepos.length > 0) setRepositoryId(readyRepos[0].id);
-  }, [readyRepos, repositoryId]);
+  const lastRepoId = useProgressStore((s) => s.lastRepoId);
+  const setLastRepo = useProgressStore((s) => s.setLastRepo);
+  const setLastIndex = useProgressStore((s) => s.setLastIndex);
+  const setDone = useProgressStore((s) => s.setDone);
+  const doneMap = useProgressStore((s) => s.done);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
-    setActiveIndex(0);
-  }, [repositoryId]);
+    if (repositoryId === null && readyRepos.length > 0) {
+      const remembered = readyRepos.find((r) => r.id === lastRepoId);
+      setRepositoryId((remembered ?? readyRepos[0]).id);
+    }
+  }, [readyRepos, repositoryId, lastRepoId]);
+
+  // Resume where the learner left off in this repository.
+  useEffect(() => {
+    if (repositoryId === null) return;
+    setLastRepo(repositoryId);
+    setActiveIndex(useProgressStore.getState().lastIndex[String(repositoryId)] ?? 0);
+  }, [repositoryId, setLastRepo]);
+
+  function goTo(index: number) {
+    setActiveIndex(index);
+    if (repositoryId !== null) setLastIndex(repositoryId, index);
+    setPickerOpen(false);
+    document.querySelector("main")?.scrollTo({ top: 0 });
+  }
 
   const lessons = useLessons(repositoryId);
   const generate = useGenerateCourse();
@@ -80,7 +107,43 @@ export default function LearnPage() {
 
   const data = lessons.data ?? [];
   const hasCourse = data.length > 0;
-  const active = data[activeIndex];
+  const safeIndex = Math.min(activeIndex, Math.max(0, data.length - 1));
+  const active = data[safeIndex];
+  const doneIds = repositoryId !== null ? (doneMap[String(repositoryId)] ?? []) : [];
+  const completedCount = data.filter((l) => doneIds.includes(l.id)).length;
+  const isDone = active ? doneIds.includes(active.id) : false;
+  const isLast = safeIndex === data.length - 1;
+  const progressPct = data.length > 0 ? (completedCount / data.length) * 100 : 0;
+
+  const lessonList = (
+    <ol className="space-y-1">
+      {data.map((lesson, i) => {
+        const done = doneIds.includes(lesson.id);
+        return (
+          <li key={lesson.id}>
+            <button
+              onClick={() => goTo(i)}
+              className={cn(
+                "flex w-full items-start gap-2 rounded-md px-2 py-2.5 text-left text-sm transition-colors lg:py-2",
+                i === safeIndex
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              {done ? (
+                <CheckCircle2 className="mt-px size-4 shrink-0 text-emerald-500" />
+              ) : (
+                <span className="text-muted-foreground w-4 shrink-0 text-center text-xs">
+                  {i + 1}
+                </span>
+              )}
+              <span>{lesson.title}</span>
+            </button>
+          </li>
+        );
+      })}
+    </ol>
+  );
 
   return (
     <div className="flex flex-col lg:h-[calc(100dvh-8rem)]">
@@ -117,7 +180,12 @@ export default function LearnPage() {
       </div>
 
       {lessons.isLoading ? (
-        <p className="text-muted-foreground text-sm">Loading…</p>
+        <div className="space-y-3">
+          <Skeleton className="h-8 w-1/3" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-5/6" />
+          <Skeleton className="h-4 w-2/3" />
+        </div>
       ) : !hasCourse ? (
         <EmptyState
           icon={Sparkles}
@@ -142,29 +210,42 @@ export default function LearnPage() {
         />
       ) : (
         <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:flex-row lg:gap-0">
-          {/* Lesson navigation */}
+          {/* Mobile: current lesson + progress, opens a bottom sheet */}
+          <div className="lg:hidden">
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              className="border-border bg-card flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-muted-foreground text-xs">
+                  Lesson {safeIndex + 1} of {data.length} · {completedCount} done
+                </p>
+                <p className="truncate text-sm font-medium">{active?.title}</p>
+              </div>
+              <ChevronDown className="text-muted-foreground size-4 shrink-0" />
+            </button>
+            <ProgressBar value={progressPct} className="mt-2" />
+          </div>
+          <BottomSheet open={pickerOpen} onClose={() => setPickerOpen(false)} title="Lessons">
+            {lessonList}
+          </BottomSheet>
+
+          {/* Desktop: lesson navigation */}
           <nav
             style={{ "--panel-w": `${nav.width}px` } as React.CSSProperties}
-            className="border-border max-h-60 min-h-0 w-full shrink-0 overflow-y-auto rounded-lg border p-2 lg:max-h-none lg:w-[var(--panel-w)]"
+            className="border-border hidden min-h-0 shrink-0 flex-col overflow-hidden rounded-lg border lg:flex lg:w-[var(--panel-w)]"
           >
-            <ol className="space-y-1">
-              {data.map((lesson, i) => (
-                <li key={lesson.id}>
-                  <button
-                    onClick={() => setActiveIndex(i)}
-                    className={cn(
-                      "flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors",
-                      i === activeIndex
-                        ? "bg-muted text-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                    )}
-                  >
-                    <span className="text-muted-foreground w-5 shrink-0 text-xs">{i + 1}</span>
-                    <span>{lesson.title}</span>
-                  </button>
-                </li>
-              ))}
-            </ol>
+            <div className="border-border shrink-0 border-b p-3">
+              <div className="text-muted-foreground mb-1.5 flex justify-between text-xs">
+                <span>Progress</span>
+                <span>
+                  {completedCount}/{data.length}
+                </span>
+              </div>
+              <ProgressBar value={progressPct} />
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-2">{lessonList}</div>
           </nav>
 
           <ResizeHandle
@@ -179,7 +260,7 @@ export default function LearnPage() {
               <div className="mx-auto max-w-3xl px-4 py-5 sm:px-6 sm:py-6">
                 <div className="border-border mb-4 border-b pb-4">
                   <p className="text-muted-foreground text-xs">
-                    Lesson {activeIndex + 1} of {data.length}
+                    Lesson {safeIndex + 1} of {data.length}
                   </p>
                   <h1 className="mt-1 text-2xl font-semibold tracking-tight">{active.title}</h1>
                   <p className="text-muted-foreground mt-1 flex items-center gap-1.5 text-xs">
@@ -193,18 +274,31 @@ export default function LearnPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setActiveIndex((i) => Math.max(0, i - 1))}
-                    disabled={activeIndex === 0}
+                    onClick={() => goTo(Math.max(0, safeIndex - 1))}
+                    disabled={safeIndex === 0}
                   >
                     <ChevronLeft className="size-4" /> Previous
                   </Button>
                   <Button
-                    variant="outline"
                     size="sm"
-                    onClick={() => setActiveIndex((i) => Math.min(data.length - 1, i + 1))}
-                    disabled={activeIndex === data.length - 1}
+                    onClick={() => {
+                      if (repositoryId !== null) setDone(repositoryId, active.id, true);
+                      if (!isLast) goTo(safeIndex + 1);
+                    }}
                   >
-                    Next <ChevronRight className="size-4" />
+                    {isDone && !isLast ? (
+                      <>
+                        Next <ChevronRight className="size-4" />
+                      </>
+                    ) : isLast ? (
+                      <>
+                        <Check className="size-4" /> {isDone ? "Completed" : "Finish course"}
+                      </>
+                    ) : (
+                      <>
+                        <Check className="size-4" /> Complete &amp; next
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>

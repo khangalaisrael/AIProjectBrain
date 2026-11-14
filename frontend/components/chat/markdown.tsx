@@ -4,8 +4,6 @@ import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 
-import "highlight.js/styles/github-dark.css";
-
 /**
  * Renders assistant answers as GitHub-flavored markdown with syntax-highlighted
  * code blocks. Element styles are supplied inline so we don't depend on a

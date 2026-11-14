@@ -133,14 +133,14 @@ export function DetailsPanel({
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 24, opacity: 0 }}
       transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-      style={{ width: panel.width }}
-      className="border-border/70 bg-background/95 rounded-card shadow-card-hover absolute top-4 right-4 z-10 flex max-h-[calc(100%-2rem)] max-w-[calc(100%-2rem)] flex-col border backdrop-blur"
+      style={{ "--panel-w": `${panel.width}px` } as React.CSSProperties}
+      className="border-border/70 bg-background/95 rounded-card shadow-card-hover absolute inset-x-2 bottom-2 z-10 flex max-h-[65%] flex-col border backdrop-blur lg:inset-x-auto lg:top-4 lg:right-4 lg:bottom-auto lg:max-h-[calc(100%-2rem)] lg:w-[var(--panel-w)] lg:max-w-[calc(100%-2rem)]"
     >
       {/* Grab the panel's left edge to widen it over the map. */}
       <ResizeHandle
         {...panel.separatorProps}
         isDragging={panel.isDragging}
-        className="absolute inset-y-0 -left-1 z-10"
+        className="absolute inset-y-0 -left-1 z-10 hidden lg:block"
       />
 
       <div className="border-border flex items-start justify-between gap-2 border-b p-4">

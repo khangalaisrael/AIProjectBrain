@@ -13,6 +13,19 @@ interface FileTreeProps {
   onSelect: (id: number) => void;
 }
 
+/** Icon tint by file extension, so the tree is scannable at a glance. */
+function fileTint(name: string): string {
+  const ext = name.includes(".") ? name.split(".").pop()!.toLowerCase() : "";
+  if (["ts", "tsx"].includes(ext)) return "text-blue-400";
+  if (["js", "jsx", "mjs", "cjs"].includes(ext)) return "text-amber-400";
+  if (ext === "py") return "text-yellow-400";
+  if (["json", "yml", "yaml", "toml", "ini", "env"].includes(ext)) return "text-emerald-400";
+  if (["md", "mdx", "txt", "rst"].includes(ext)) return "text-sky-300";
+  if (["css", "scss", "html"].includes(ext)) return "text-pink-400";
+  if (["go", "rs", "java", "rb", "cs", "cpp", "c", "h"].includes(ext)) return "text-orange-400";
+  return "opacity-70";
+}
+
 /** How far each nesting level is indented. */
 const INDENT = 12;
 
@@ -76,7 +89,7 @@ function TreeRow({ node, depth, expanded, onToggle, selectedId, onSelect }: Tree
               : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
         >
-          <FileCode2 className="size-3.5 shrink-0 opacity-70" />
+          <FileCode2 className={cn("size-3.5 shrink-0", fileTint(node.name))} />
           <span className="truncate">{node.name}</span>
           {node.item.function_count > 0 && (
             <span className="text-muted-foreground ml-auto shrink-0 text-xs">

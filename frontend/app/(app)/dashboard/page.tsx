@@ -8,11 +8,16 @@ import { PageHeader } from "@/components/layout/page-header";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SignInButton } from "@/components/auth/auth-controls";
-import { ImportedList } from "@/components/repositories/imported-list";
+import { RepoCard } from "@/components/dashboard/repo-card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card } from "@/components/ui/card";
+import { useProgressStore } from "@/lib/progress-store";
 
 export default function DashboardPage() {
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
-  const { data: repositories } = useRepositories(isAuthenticated);
+  const { data: repositories, isLoading: reposLoading } = useRepositories(isAuthenticated);
+  const done = useProgressStore((s) => s.done);
+  const lessonsDone = Object.values(done).reduce((n, ids) => n + ids.length, 0);
 
   if (!authLoading && !isAuthenticated) {
     return (
@@ -40,10 +45,22 @@ export default function DashboardPage() {
         description="Your imported repositories and their indexing status."
       />
 
-      {hasRepos ? (
-        <div className="space-y-4">
+      {reposLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-44 rounded-lg" />
+          ))}
+        </div>
+      ) : hasRepos ? (
+        <div className="space-y-6">
+          <div className="grid grid-cols-3 gap-3">
+            <Stat label="Repositories" value={repositories.length} />
+            <Stat label="Ready" value={repositories.filter((r) => r.status === "ready").length} />
+            <Stat label="Lessons done" value={lessonsDone} />
+          </div>
+
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Recent repositories</h2>
+            <h2 className="text-sm font-semibold">Your repositories</h2>
             <Link
               href="/repositories"
               className={buttonVariants({ variant: "outline", size: "sm" })}
@@ -51,7 +68,11 @@ export default function DashboardPage() {
               Manage
             </Link>
           </div>
-          <ImportedList repositories={repositories.slice(0, 5)} />
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {repositories.map((repo) => (
+              <RepoCard key={repo.id} repo={repo} />
+            ))}
+          </div>
         </div>
       ) : (
         <EmptyState
@@ -66,5 +87,14 @@ export default function DashboardPage() {
         />
       )}
     </>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <Card className="px-4 py-3">
+      <p className="text-2xl font-semibold tabular-nums">{value}</p>
+      <p className="text-muted-foreground text-xs">{label}</p>
+    </Card>
   );
 }
