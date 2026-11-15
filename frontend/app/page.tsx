@@ -105,7 +105,7 @@ export default function Home() {
             </span>
             <h1 className="mt-5 text-4xl leading-tight font-semibold tracking-tight text-balance sm:text-6xl">
               Turn any codebase into a course you can{" "}
-              <span className="px-1 [box-decoration-break:clone]" style={{ backgroundImage: "linear-gradient(transparent 60%, var(--hl-soft) 60%, var(--hl-soft) 92%, transparent 92%)" }}>actually follow</span>
+              <span className="text-accent">actually follow</span>
             </h1>
             <p className="text-muted-foreground mx-auto mt-5 max-w-2xl text-base text-pretty sm:text-lg">
               Import a GitHub repository and learn how it works through guided lessons, an
